@@ -1,0 +1,25 @@
+# Changelog
+
+## 2026-07-02
+
+- Fixed update conversation responses so real file-change evidence prevents the false "no code changes were applied" message.
+- Kept parallel worker `changed_paths` aligned with normalized write payloads after import/scaffold repair.
+- Prevented browser-folder write-back from syncing existing project files when staged pre-commit QA blocks an empty generated file payload.
+- Improved website generation for structured requirement prompts by promoting moderate greenfield builds to parallel file workers.
+- Improved update understanding with scoped-target preflight fallback, structured-requirement clarification bypass, and LLM update analysis enabled by default.
+- Replaced static generation/update chat messages with dynamic summaries based on real file-change evidence.
+- Removed preset domain layouts (CRM, ecommerce, farm, SaaS, portfolio) and keyword-only website routing; greenfield planning now derives page paths from prompt structure and the LLM router owns intent selection.
+- Enforced platform file locks during website updates so `index.html`, `package.json`, `package-lock.json`, `src/index.css`, `tailwind.config.js`, and `vite.config.js` cannot be rewritten by workers, upsert tools, or scoped-update expansion (scaffold injection remains exempt).
+- Fixed website updates that read files but applied no patch by raising the scoped update step budget (2 → 8) and routing guest-trial/button/interaction failures through behavior-repair mode with stronger patch-first instructions.
+- Raised enterprise website generation quality: interactive handler requirements, multi-section page guidance, richer greenfield component planning, and updated Codex/agentic prompt policies.
+- Fixed workspace file panel staying empty after generation by streaming full file payloads on save events, refetching project files when batch saves complete, and refreshing the file tree from the API when a generation run finishes.
+- Improved auth -> onboarding -> dashboard update routing with expanded flow detection, chat-session continuity for follow-up turns, dedicated auth-flow agent instructions, and clearer syntax-blocked save messages.
+- Generalized chat-session continuity for all website modification requests: prior user requirements and recent assistant context are merged into every update turn at the API entry point and streaming agents, with fuller step/context budgets when session history is present.
+- Fixed misleading brand-rename failure messages when the current request is unrelated (e.g. add-to-cart) but an earlier rename request was merged from chat continuity; brand validation now inspects only the latest user turn.
+- Improved high-level UI update handling for cart/button/click issues: routes agents to Navbar and marketplace pages, blocks locked platform file injections during updates, and surfaces clearer messages when only locked files were touched.
+- **V2 unified update architecture**: single streaming agent loop for website intents; `ScopeEngine` (memory + code index + LLM analysis) as the sole file-routing authority; hybrid `code_index` with incremental re-index on persist; `search_codebase` agent tool; legacy parallel/LangGraph paths gated behind `ENABLE_LEGACY_PARALLEL_UPDATES=false` by default; `commit_pipeline` user messages and `scope.resolved` progress events in the UI.
+- **Style reference updates**: cross-page prompts like "make auth colors match dashboard" now resolve `target_files` + `reference_files`, inject dashboard color snippets, skip flaky visual QA precommit for cosmetic page edits, relax className rewrite guards, and surface `commit.rejected` reasons instead of generic "no code changes" messages.
+- **Scoped pre-read enrichment**: after ScopeEngine resolves files, the unified update path pre-loads compact code snippets (handlers, onClick, cart state, style tokens) into the agent prompt via `scope_enrichment_snippets`; supports `interaction_wiring_update` for cart/button/click fixes without legacy cart routing heuristics; relaxed handler rewrite guards and precommit visual QA skip for page/component interaction edits.
+- **Remaining architecture follow-ups**: structured LLM `interaction` metadata (`component`/`trigger`/`expected`) in ScopeEngine; staged `patch.proposed` diffs during `str_replace` with right-panel preview; unified-mode legacy path gating; `backend.agents` import fallback helper for update engine modules.
+- **Legacy dead-code isolation**: cart/auth prompts and heuristics moved to `legacy_update_routing.py` (lazy-loaded only when `ENABLE_LEGACY_PARALLEL_UPDATES=true`); parallel orchestrator lazy-imported in runner; `unified_website_updates_active()` helper keeps the default hot path free of legacy branching and extra module loads.
+- **Greenfield generation engine**: `website_generation` routes through `generation_engine/greenfield_runner.py` with file blueprints, confirmation brief injection, scaffold-only detection, minimum deliverable validation, and auto-resume; unified update fast path applies to `website_update` only.

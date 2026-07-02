@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agentic Software Architect"
+  short_description: "Plan enterprise multi-agent engineering systems"
+  default_prompt: "Use $agentic-software-architect to design an enterprise multi-agent software engineering workflow."

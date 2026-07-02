@@ -1,0 +1,4 @@
+interface:
+  display_name: "Vibe Coding UI Research"
+  short_description: "Research AI coding UI competitors"
+  default_prompt: "Use $vibe-coding-ui-research to benchmark competitor AI coding UIs and turn findings into product UX requirements."

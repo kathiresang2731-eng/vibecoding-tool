@@ -1,0 +1,151 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="1280" viewBox="0 0 1900 1280">
+  <defs>
+    <style>
+      .bg{fill:#f6f8fb}.title{font:700 36px Arial,sans-serif;fill:#111827}.sub{font:400 18px Arial,sans-serif;fill:#475569}
+      .step{fill:#fff;stroke:#cbd5e1;stroke-width:2;rx:18}.ai{fill:#f3f0ff;stroke:#7c3aed}.state{fill:#ecfdf5;stroke:#10b981}
+      .tool{fill:#ecfeff;stroke:#0891b2}.check{fill:#f0fdf4;stroke:#22c55e}.warn{fill:#fff7ed;stroke:#f97316}
+      .future{fill:#f8fafc;stroke:#94a3b8;stroke-width:2;stroke-dasharray:8 6;rx:18}.bad{fill:#fef2f2;stroke:#ef4444}
+      .h{font:700 20px Arial,sans-serif;fill:#111827}.p{font:400 15px Arial,sans-serif;fill:#475569}.n{font:700 18px Arial,sans-serif;fill:#fff}
+      .num{fill:#111827}.edge{stroke:#334155;stroke-width:2.4;fill:none;marker-end:url(#arr)}.dash{stroke:#64748b;stroke-width:2.2;fill:none;stroke-dasharray:8 6;marker-end:url(#arr2)}
+      .caption{font:700 14px Arial,sans-serif;fill:#334155}.small{font:400 13px Arial,sans-serif;fill:#64748b}
+    </style>
+    <marker id="arr" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M2,2 L10,6 L2,10 Z" fill="#334155"/></marker>
+    <marker id="arr2" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M2,2 L10,6 L2,10 Z" fill="#64748b"/></marker>
+  </defs>
+
+  <rect class="bg" width="1900" height="1280"/>
+  <text class="title" x="70" y="62">AI Website Builder - Simple End-to-End Flow</text>
+  <text class="sub" x="70" y="96">Easy view of how a user request becomes a generated or updated website, and where Gemini, backend tools, A2A, ADK, and LangGraph fit.</text>
+
+  <!-- Main flow nodes -->
+  <g>
+    <rect class="step" x="80" y="160" width="320" height="130"/>
+    <circle class="num" cx="112" cy="192" r="18"/><text class="n" x="107" y="199">1</text>
+    <text class="h" x="140" y="196">User asks in chat</text>
+    <text class="p" x="110" y="230">Examples:</text>
+    <text class="p" x="110" y="254">"Create a CRM website"</text>
+    <text class="p" x="110" y="278">"Fix the footer buttons"</text>
+
+    <rect class="state" x="500" y="160" width="340" height="130"/>
+    <circle class="num" cx="532" cy="192" r="18"/><text class="n" x="527" y="199">2</text>
+    <text class="h" x="560" y="196">Backend loads context</text>
+    <text class="p" x="530" y="230">Conversation memory</text>
+    <text class="p" x="530" y="254">Current live website files</text>
+    <text class="p" x="530" y="278">Project state and brand rules</text>
+
+    <rect class="ai" x="940" y="160" width="340" height="130"/>
+    <circle class="num" cx="972" cy="192" r="18"/><text class="n" x="967" y="199">3</text>
+    <text class="h" x="1000" y="196">Gemini understands intent</text>
+    <text class="p" x="970" y="230">Is this new generation?</text>
+    <text class="p" x="970" y="254">Is this an update?</text>
+    <text class="p" x="970" y="278">Is this a question or repair?</text>
+
+    <rect class="step" x="1380" y="160" width="340" height="130"/>
+    <circle class="num" cx="1412" cy="192" r="18"/><text class="n" x="1407" y="199">4</text>
+    <text class="h" x="1440" y="196">Runtime chooses path</text>
+    <text class="p" x="1410" y="230">New website path</text>
+    <text class="p" x="1410" y="254">Update existing website path</text>
+    <text class="p" x="1410" y="278">Repair or chat response path</text>
+  </g>
+
+  <path class="edge" d="M400 225 L500 225"/>
+  <path class="edge" d="M840 225 L940 225"/>
+  <path class="edge" d="M1280 225 L1380 225"/>
+
+  <!-- Split paths -->
+  <rect class="ai" x="245" y="410" width="410" height="170"/>
+  <text class="caption" x="275" y="442">PATH A - CREATE NEW WEBSITE</text>
+  <text class="h" x="275" y="476">Gemini plans the website</text>
+  <text class="p" x="275" y="510">Creates modular components:</text>
+  <text class="p" x="275" y="534">Hero, Features, Pricing, FAQ, Footer</text>
+  <text class="p" x="275" y="558">Generates dynamic design tokens if user did not provide brand rules</text>
+
+  <rect class="ai" x="735" y="410" width="410" height="170"/>
+  <text class="caption" x="765" y="442">PATH B - UPDATE EXISTING WEBSITE</text>
+  <text class="h" x="765" y="476">Gemini edits using live code</text>
+  <text class="p" x="765" y="510">Reads the current file content first</text>
+  <text class="p" x="765" y="534">Outputs SEARCH/REPLACE patches</text>
+  <text class="p" x="765" y="558">No guessed line numbers, no partial context</text>
+
+  <rect class="ai" x="1225" y="410" width="410" height="170"/>
+  <text class="caption" x="1255" y="442">PATH C - REPAIR OR QUESTION</text>
+  <text class="h" x="1255" y="476">Gemini responds or repairs</text>
+  <text class="p" x="1255" y="510">For questions: answer from memory + code</text>
+  <text class="p" x="1255" y="534">For errors: inspect diagnostics</text>
+  <text class="p" x="1255" y="558">Then regenerate a safer fix</text>
+
+  <path class="edge" d="M1550 290 C1550 350 450 350 450 410"/>
+  <path class="edge" d="M1550 290 C1550 350 940 350 940 410"/>
+  <path class="edge" d="M1550 290 C1550 350 1430 350 1430 410"/>
+
+  <!-- Merge -->
+  <rect class="tool" x="430" y="700" width="460" height="145"/>
+  <circle class="num" cx="462" cy="732" r="18"/><text class="n" x="457" y="739">5</text>
+  <text class="h" x="490" y="736">Backend tools apply safely</text>
+  <text class="p" x="460" y="770">Python backend parses generated files or patches</text>
+  <text class="p" x="460" y="794">Checks exact matches before changing files</text>
+  <text class="p" x="460" y="818">Backend owns write/sync, not the model</text>
+
+  <rect class="check" x="1010" y="700" width="460" height="145"/>
+  <circle class="num" cx="1042" cy="732" r="18"/><text class="n" x="1037" y="739">6</text>
+  <text class="h" x="1070" y="736">Quality gates run</text>
+  <text class="p" x="1040" y="770">Build/JSX sanity check</text>
+  <text class="p" x="1040" y="794">Preview smoke test</text>
+  <text class="p" x="1040" y="818">Accessibility, SEO, and performance checks</text>
+
+  <path class="edge" d="M450 580 C450 640 660 650 660 700"/>
+  <path class="edge" d="M940 580 C940 640 660 650 660 700"/>
+  <path class="edge" d="M1430 580 C1430 640 660 650 660 700"/>
+  <path class="edge" d="M890 772 L1010 772"/>
+
+  <!-- Decision -->
+  <polygon class="warn" points="1250,920 1470,1010 1250,1100 1030,1010"/>
+  <text class="h" x="1162" y="1004">Did QA pass?</text>
+  <text class="p" x="1182" y="1032">yes: save, no: repair</text>
+  <path class="edge" d="M1240 845 L1240 920"/>
+
+  <rect class="bad" x="500" y="965" width="360" height="130"/>
+  <text class="h" x="530" y="1000">Repair loop</text>
+  <text class="p" x="530" y="1034">Reload exact current files</text>
+  <text class="p" x="530" y="1058">Ask Gemini to fix only the failing part</text>
+  <text class="p" x="530" y="1082">Validate again before writing</text>
+
+  <rect class="check" x="1530" y="945" width="330" height="155"/>
+  <circle class="num" cx="1562" cy="977" r="18"/><text class="n" x="1557" y="984">7</text>
+  <text class="h" x="1590" y="981">Save and respond</text>
+  <text class="p" x="1560" y="1015">Persist generated files</text>
+  <text class="p" x="1560" y="1039">Update project state</text>
+  <text class="p" x="1560" y="1063">Sync local folder if selected</text>
+  <text class="p" x="1560" y="1087">Return preview to user</text>
+
+  <path class="edge" d="M1030 1010 L860 1010"/>
+  <path class="edge" d="M680 965 C680 900 1060 880 1120 845"/>
+  <path class="edge" d="M1470 1010 L1530 1010"/>
+
+  <!-- Optional section -->
+  <text class="caption" x="80" y="1190">WHERE EXTRA FRAMEWORKS FIT</text>
+  <rect class="future" x="80" y="1210" width="410" height="84"/>
+  <text class="h" x="110" y="1240">A2A communication</text>
+  <text class="p" x="110" y="1266">Used now for audit/debug logs. It explains what agents did.</text>
+
+  <rect class="future" x="530" y="1210" width="410" height="84"/>
+  <text class="h" x="560" y="1240">Gemini tool calling</text>
+  <text class="p" x="560" y="1266">Use only for small controlled tools, not full file editing.</text>
+
+  <rect class="future" x="980" y="1210" width="410" height="84"/>
+  <text class="h" x="1010" y="1240">Google ADK</text>
+  <text class="p" x="1010" y="1266">Future adapter for Gemini-native agents, evals, deployment.</text>
+
+  <rect class="future" x="1430" y="1210" width="410" height="84"/>
+  <text class="h" x="1460" y="1240">LangGraph / LangChain</text>
+  <text class="p" x="1460" y="1266">Future adapter for durable graph flows and long-running retries.</text>
+
+  <path class="dash" d="M1695 1100 C1695 1165 285 1165 285 1210"/>
+  <path class="dash" d="M1695 1100 C1695 1165 735 1165 735 1210"/>
+  <path class="dash" d="M1695 1100 C1695 1165 1185 1165 1185 1210"/>
+  <path class="dash" d="M1695 1100 C1695 1165 1635 1165 1635 1210"/>
+
+  <!-- Key message -->
+  <rect class="step" x="80" y="1120" width="870" height="50"/>
+  <text class="caption" x="110" y="1152">KEY DECISION: Worktual custom Python runtime is the main engine. Gemini reasons and generates. Backend tools verify and write. ADK/LangGraph are optional adapters, not the core today.</text>
+</svg>

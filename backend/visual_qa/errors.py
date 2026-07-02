@@ -1,0 +1,2 @@
+class VisualQARenderError(RuntimeError):
+  pass

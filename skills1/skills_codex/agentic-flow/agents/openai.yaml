@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agentic Flow"
+  short_description: "Design adaptive multi-agent workflows"
+  default_prompt: "Use $agentic-flow to design a chief-orchestrated adaptive agent workflow."

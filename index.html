@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#000000" />
+    <title>Worktual AI Dev</title>
+    <script>
+      (function () {
+        try {
+          var path = window.location.pathname || "/";
+          if (path.indexOf("/api/previews/") === 0) return;
+          var base = localStorage.getItem("worktual_active_preview_base");
+          var at = Number(localStorage.getItem("worktual_active_preview_at") || 0);
+          if (!base || !at || Date.now() - at > 4 * 60 * 60 * 1000) return;
+          var normalized = "/" + String(path || "/").replace(/^\/+|\/+$/g, "");
+          if (normalized === "/") return;
+          var appRoutes = [
+            "/dashboard",
+            "/onboarding",
+            "/login",
+            "/auth",
+            "/register",
+            "/signup",
+            "/home",
+            "/app",
+            "/portal",
+            "/admin",
+            "/settings",
+            "/profile",
+            "/welcome",
+            "/setup",
+          ];
+          var shouldRedirect = appRoutes.some(function (route) {
+            return normalized === route || normalized.indexOf(route + "/") === 0;
+          });
+          if (!shouldRedirect) return;
+          var target = base.replace(/\/+$/, "") + normalized;
+          window.location.replace(target + window.location.search + window.location.hash);
+        } catch (err) {
+          /* ignore */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

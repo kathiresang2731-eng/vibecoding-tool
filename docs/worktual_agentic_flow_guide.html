@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Worktual Agentic Flow Guide</title>
+  <style>
+    @page { margin: 18mm 16mm; }
+    body {
+      font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+      color: #1a1a2e;
+      line-height: 1.45;
+      font-size: 10.5pt;
+      max-width: 100%;
+    }
+    h1 { font-size: 22pt; color: #0f3460; border-bottom: 3px solid #0f3460; padding-bottom: 8px; margin-top: 0; }
+    h2 { font-size: 14pt; color: #16213e; margin-top: 22px; page-break-after: avoid; }
+    h3 { font-size: 11.5pt; color: #1a1a2e; margin-top: 16px; page-break-after: avoid; }
+    h4 { font-size: 10.5pt; margin-top: 12px; }
+    p { margin: 6px 0 10px; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 9.5pt; page-break-inside: avoid; }
+    th { background: #0f3460; color: #fff; text-align: left; padding: 7px 8px; font-weight: 600; }
+    td { border: 1px solid #c8d0dc; padding: 6px 8px; vertical-align: top; }
+    tr:nth-child(even) td { background: #f4f7fb; }
+    code, .mono { font-family: Consolas, "Courier New", monospace; font-size: 9pt; background: #eef2f7; padding: 1px 4px; border-radius: 3px; }
+    .flow-box {
+      background: #f8fafc;
+      border: 1px solid #c8d0dc;
+      border-left: 4px solid #0f3460;
+      padding: 12px 14px;
+      margin: 12px 0;
+      font-size: 9.5pt;
+      white-space: pre-wrap;
+      font-family: Consolas, monospace;
+      page-break-inside: avoid;
+    }
+    .meta { color: #555; font-size: 9pt; margin-bottom: 20px; }
+    .page-break { page-break-before: always; }
+    ul { margin: 6px 0 10px; padding-left: 20px; }
+    li { margin: 3px 0; }
+    .toc a { color: #0f3460; text-decoration: none; }
+    .footer { margin-top: 30px; font-size: 8.5pt; color: #666; border-top: 1px solid #ccc; padding-top: 8px; }
+  </style>
+</head>
+<body>
+
+<h1>Worktual Agentic Flow Guide</h1>
+<p class="meta">Complete reference: agents, tools, responsibilities, and execution paths<br />
+Generated: July 2026 &nbsp;|&nbsp; Project: Worktual Open Head</p>
+
+<h2>Table of Contents</h2>
+<ol class="toc">
+  <li><a href="#principle">Core Principle</a></li>
+  <li><a href="#flow">End-to-End Flow</a></li>
+  <li><a href="#intents">Routing Intents</a></li>
+  <li><a href="#orchestration">Orchestration Agents</a></li>
+  <li><a href="#runtime">Full Runtime Loop Agents (16)</a></li>
+  <li><a href="#dynamic">Dynamic Agent Registry</a></li>
+  <li><a href="#tools">All Tools</a></li>
+  <li><a href="#paths">Default Production Paths</a></li>
+  <li><a href="#flags">Feature Flags</a></li>
+  <li><a href="#adaptive">Adaptive Routing</a></li>
+  <li><a href="#crm">CRM Use-Case Quick Reference</a></li>
+  <li><a href="#files">Key Source Files</a></li>
+</ol>
+
+<h2 id="principle">1. Core Principle</h2>
+<p>Worktual uses a <strong>two-layer architecture</strong>:</p>
+<table>
+  <tr><th>Layer</th><th>Role</th></tr>
+  <tr><td><strong>Gemini (LLM)</strong></td><td>Routing, planning, coding, review, conversation</td></tr>
+  <tr><td><strong>Python (backend)</strong></td><td>Identity, tool filtering, validation, staging, QA, commit, rollback</td></tr>
+</table>
+<p><strong>Entry point:</strong> User message → <code>backend/api/generation.py</code> → <code>backend/agents/orchestration/runner.py</code></p>
+<p><strong>Source of truth:</strong> <code>backend/AGENTIC_EXECUTION_FLOW.md</code>, <code>backend/agents/agent_tool_catalog.py</code>, <code>backend/agents/runtime_agents/registry.py</code></p>
+
+<h2 id="flow">2. End-to-End Flow</h2>
+<div class="flow-box">User message
+  → generation API
+  → Intent Router Agent
+  → Intent? (greeting | simple_code | needs_confirmation | website_generation | website_update | …)
+  → [optional] Requirement Confirmation Agent (confirm / revise / cancel)
+  → Execution pipeline:
+       website_generation → Greenfield Generation Engine → Streaming File Agent / Parallel Workers
+       website_update     → ScopeEngine + Streaming File Agent
+       simple_code        → Simple Code Writer Agent
+  → Commit (WRITE_PROJECT_FILES)
+  → Memory Agent (persist summary)</div>
+
+<h2 id="intents">3. Routing Intents</h2>
+<p>Classified by <strong>Intent Router Agent</strong> (<code>backend/agents/orchestration/routing.py</code>).</p>
+<table>
+  <tr><th>Intent</th><th>Meaning</th><th>Active Agent</th></tr>
+  <tr><td><code>greeting</code></td><td>Hello / small talk</td><td>Greeting Handler Agent</td></tr>
+  <tr><td><code>needs_more_detail</code></td><td>Vague build request</td><td>Conversation Agent</td></tr>
+  <tr><td><code>project_info</code></td><td>Explain / summarize project</td><td>Conversation Agent (read-only)</td></tr>
+  <tr><td><code>simple_code</code></td><td>Standalone algorithm/script</td><td>Simple Code Writer Agent</td></tr>
+  <tr><td><code>needs_confirmation</code></td><td>Brief ready, waiting</td><td>Requirement Confirmation Agent</td></tr>
+  <tr><td><code>website_generation</code></td><td>Build new website/app</td><td>Greenfield Generation Engine</td></tr>
+  <tr><td><code>website_update</code></td><td>Change existing project</td><td>Streaming File Agent + ScopeEngine</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2 id="orchestration">4. Orchestration Agents (Pre-Execution)</h2>
+
+<h3>4.1 Intent Router Agent</h3>
+<table>
+  <tr><th>Tools</th><td><code>route_generation_action</code></td></tr>
+  <tr><th>Responsibility</th><td>Classify every turn → intent + next tool (strict JSON)</td></tr>
+  <tr><th>File</th><td><code>backend/agents/orchestration/routing.py</code></td></tr>
+</table>
+
+<h3>4.2 Greeting Handler Agent</h3>
+<table>
+  <tr><th>Tools</th><td><code>handle_greeting</code></td></tr>
+  <tr><th>Responsibility</th><td>Warm reply; collect business type, pages, style</td></tr>
+</table>
+
+<h3>4.3 Requirement Confirmation Agent</h3>
+<table>
+  <tr><th>Tools</th><td><code>confirm_execution_brief</code></td></tr>
+  <tr><th>Responsibility</th><td>Build execution brief; block writes until user confirms</td></tr>
+  <tr><th>Decisions</th><td>confirm | revise | cancel | new_request | unclear</td></tr>
+  <tr><th>Files</th><td><code>backend/agents/requirement_confirmation/</code></td></tr>
+</table>
+
+<h3>4.4 Simple Code Writer Agent</h3>
+<table>
+  <tr><th>Tools</th><td><code>generate_simple_code_file</code></td></tr>
+  <tr><th>Responsibility</th><td>Python/Java/etc. single files — no Vite/React scaffold</td></tr>
+</table>
+
+<h3>4.5 Streaming File Agent (Primary Coder)</h3>
+<table>
+  <tr><th>Tools</th><td><code>read_file</code>, <code>write_file</code>, <code>str_replace</code>, <code>list_files</code>, <code>search_codebase</code></td></tr>
+  <tr><th>Responsibility</th><td>Live tool-calling loop — read project, edit files, finish with summary</td></tr>
+  <tr><th>Used for</th><td>Website updates (default), greenfield builds, parallel worker subprocesses</td></tr>
+  <tr><th>File</th><td><code>backend/agents/streaming/file_agent.py</code></td></tr>
+</table>
+
+<h3>4.6 Greenfield Generation Engine</h3>
+<table>
+  <tr><th>Responsibility</th><td>Inject scaffold → plan file blueprint → generate pages/components/routes → validate → auto-resume if incomplete</td></tr>
+  <tr><th>File</th><td><code>backend/agents/generation_engine/greenfield_runner.py</code></td></tr>
+</table>
+
+<h3>4.7 Parallel Stream Orchestrator (Legacy)</h3>
+<table>
+  <tr><th>When</th><td><code>ENABLE_LEGACY_PARALLEL_UPDATES=true</code> + parallel flags</td></tr>
+  <tr><th>File</th><td><code>backend/agents/streaming/parallel_orchestrator.py</code></td></tr>
+</table>
+
+<h3>4.8 Parallel File Workers</h3>
+<table>
+  <tr><th>When</th><td>Rich CRM / module-heavy greenfield (<code>ENABLE_GREENFIELD_PARALLEL_WORKERS</code>)</td></tr>
+  <tr><th>File</th><td><code>backend/agents/streaming/parallel_file_workers.py</code></td></tr>
+</table>
+
+<h3>4.9 ScopeEngine (Unified Update Authority)</h3>
+<table>
+  <tr><th>Responsibility</th><td>Sole file-routing for updates: memory + code index + LLM → candidate files, enrichment, interaction metadata</td></tr>
+  <tr><th>File</th><td><code>backend/agents/update_engine/scope_engine.py</code></td></tr>
+</table>
+
+<h3>4.10 Specialist Agents (Optional)</h3>
+<table>
+  <tr><th>Agent</th><th>Role</th></tr>
+  <tr><td>Content Specialist Agent</td><td>Copy, sections, tone JSON plan</td></tr>
+  <tr><td>Layout Specialist Agent</td><td>Pages, components, layout plan</td></tr>
+  <tr><td>Catalog Specialist Agent</td><td>Entities, fields, catalog plan</td></tr>
+</table>
+<p>Skipped for website_generation / website_update in default config.</p>
+
+<div class="page-break"></div>
+
+<h2 id="runtime">5. Full Runtime Loop Agents (16)</h2>
+<p>Run when LangGraph / legacy runtime is enabled and streaming fast path is <strong>not</strong> selected. Supervisor picks actions from <code>ACTION_REGISTRY</code>.</p>
+
+<table>
+  <tr><th>Agent</th><th>Action(s)</th><th>Backend Tool(s)</th><th>Responsibility</th></tr>
+  <tr><td>Supervisor Agent</td><td>DONE</td><td>—</td><td>Pick next legal action; stop when proof complete</td></tr>
+  <tr><td>Memory Agent</td><td>READ/LOAD/PERSIST</td><td>Same</td><td>Load context; persist summary after commit</td></tr>
+  <tr><td>Universal Error Handling Agent</td><td>RUN_ERROR_HANDLING_AGENT</td><td>—</td><td>Triage build/runtime/API errors</td></tr>
+  <tr><td>Update Analysis Agent</td><td>RUN_UPDATE_ANALYST</td><td>—</td><td>Choose update mode + candidate files</td></tr>
+  <tr><td>Scoped Update Agent</td><td>RUN_SCOPED_UPDATE_AGENT</td><td>APPLY_PATCH</td><td>Patch only approved paths</td></tr>
+  <tr><td>Prompt Analyst Agent</td><td>RUN_PROMPT_ANALYST</td><td>—</td><td>Structured brief from prompt + files</td></tr>
+  <tr><td>Planner Agent</td><td>RUN_PLANNER</td><td>—</td><td>Section/layout/implementation plan</td></tr>
+  <tr><td>Agent Registry Agent</td><td>RUN_DYNAMIC_*</td><td>Read only</td><td>Plan/run dynamic specialists</td></tr>
+  <tr><td>UX Review Agent</td><td>RUN_UX_REVIEW_AGENT</td><td>—</td><td>Conversion, layout, workflow risks</td></tr>
+  <tr><td>Accessibility Agent</td><td>RUN_ACCESSIBILITY_AGENT</td><td>—</td><td>Contrast, semantics, keyboard</td></tr>
+  <tr><td>Code Agent</td><td>RUN_CODE_AGENT</td><td>—</td><td>Generate candidate artifact JSON</td></tr>
+  <tr><td>Code Generator Agent</td><td>RUN_DYNAMIC_PATCH_INTEGRATOR</td><td>—</td><td>Merge dynamic-agent patches</td></tr>
+  <tr><td>Materialize Agent</td><td>MATERIALIZE_CANDIDATE_FILES</td><td>WRITE_PROJECT_FILES</td><td>Stage files before preview</td></tr>
+  <tr><td>Repair Agent</td><td>RUN_REPAIR_AGENT</td><td>—</td><td>Fix after validation/QA failure</td></tr>
+  <tr><td>Validation Agent</td><td>VALIDATE_PROJECT_ARTIFACT</td><td>VALIDATE_PROJECT_ARTIFACT</td><td>Contract/shape/path checks</td></tr>
+  <tr><td>Preview Agent</td><td>BUILD_STAGED_PROJECT_PREVIEW</td><td>BUILD_STAGED_PROJECT_PREVIEW</td><td>Staged Vite build</td></tr>
+  <tr><td>Visual QA Agent</td><td>RUN_PREVIEW_VISUAL_QA</td><td>RUN_PREVIEW_VISUAL_QA</td><td>Browser/preview integrity</td></tr>
+  <tr><td>Commit Agent</td><td>WRITE_PROJECT_FILES</td><td>WRITE_PROJECT_FILES</td><td>Persist after all gates pass</td></tr>
+</table>
+
+<p><strong>Default today:</strong> Full loop is off for website intents when streaming is enabled.</p>
+
+<h2 id="dynamic">6. Dynamic Agent Registry</h2>
+<p><strong>Core (7):</strong> Intent Analyzer, Requirement Analyst, Task Decomposer, Agent Registry, Workflow Planner, Supervisor, Memory</p>
+<p><strong>Reusable specialists (8):</strong> Domain Research, UX/Layout, Content, Component/UI, Code Generator, Validation, Preview QA, Repair</p>
+<p><strong>Tool policy:</strong> Dynamic agents may only use <code>READ_PROJECT_FILES</code> and <code>LOAD_PROJECT_MEMORY</code> — no writes.</p>
+<p><strong>When:</strong> <code>ENABLE_FULL_DYNAMIC_GENERATION=true</code></p>
+
+<div class="page-break"></div>
+
+<h2 id="tools">7. All Tools</h2>
+
+<h3>7.1 Streaming Tools (Gemini — Fast Path)</h3>
+<table>
+  <tr><th>Tool</th><th>What it does</th></tr>
+  <tr><td><code>read_file</code></td><td>Read project file content</td></tr>
+  <tr><td><code>list_files</code></td><td>List directory / project files</td></tr>
+  <tr><td><code>search_codebase</code></td><td>Hybrid code index search</td></tr>
+  <tr><td><code>write_file</code></td><td>Create or replace entire file</td></tr>
+  <tr><td><code>str_replace</code></td><td>Surgical edit on existing file</td></tr>
+</table>
+
+<h3>7.2 Backend Executable Tools (Runtime Loop)</h3>
+<table>
+  <tr><th>Tool</th><th>Purpose</th></tr>
+  <tr><td>READ_PROJECT_FILES</td><td>Load all project files</td></tr>
+  <tr><td>LOAD_PROJECT_MEMORY</td><td>Load episodic/session memory</td></tr>
+  <tr><td>PERSIST_PROJECT_MEMORY</td><td>Save run summary to memory</td></tr>
+  <tr><td>WRITE_PROJECT_FILES</td><td>Commit staged files (after gates)</td></tr>
+  <tr><td>VALIDATE_PROJECT_ARTIFACT</td><td>Schema + syntax validation</td></tr>
+  <tr><td>BUILD_STAGED_PROJECT_PREVIEW</td><td>Vite preview build</td></tr>
+  <tr><td>RUN_PREVIEW_VISUAL_QA</td><td>Screenshot/visual QA</td></tr>
+  <tr><td>STR_REPLACE, APPLY_PATCH</td><td>Edits</td></tr>
+  <tr><td>SEARCH_CODEBASE, READ_FILE, LIST_DIR</td><td>Platform file ops</td></tr>
+  <tr><td>RUN_TERMINAL, GIT_*, RUN_TESTS, RUN_LINT</td><td>Dev execution</td></tr>
+</table>
+
+<h3>7.3 Orchestration Pseudo-Tools</h3>
+<table>
+  <tr><th>Tool</th><th>Maps to</th></tr>
+  <tr><td>route_generation_action</td><td>Intent Router</td></tr>
+  <tr><td>handle_greeting</td><td>Greeting Handler</td></tr>
+  <tr><td>confirm_execution_brief</td><td>Confirmation Agent</td></tr>
+  <tr><td>generate_simple_code_file</td><td>Simple Code Writer</td></tr>
+  <tr><td>analyze_prompt / analyze_update_request</td><td>Legacy artifact pipeline</td></tr>
+</table>
+
+<h2 id="paths">8. Default Production Paths</h2>
+
+<h3>Website Generation</h3>
+<div class="flow-box">Intent Router → Confirmation (if enabled) → Greenfield Generation Engine
+  → plan_greenfield_parallel_tasks
+  → Streaming File Agent + blueprint OR Parallel File Workers (rich CRM)
+  → Minimum deliverable check → auto-resume if scaffold-only
+  → Syntax guard → Vite build → Visual QA → WRITE_PROJECT_FILES</div>
+
+<h3>Website Update</h3>
+<div class="flow-box">Intent Router → [optional Confirmation] → Streaming File Agent
+  → ScopeEngine (memory + code index + LLM)
+  → Scope enrichment (handlers, styles, interaction wiring)
+  → str_replace / write_file on scoped files
+  → Commit pipeline + gates</div>
+
+<h3>Simple Code</h3>
+<div class="flow-box">Intent Router → Simple Code Writer Agent → single artifact → validate</div>
+
+<h3>Conversation</h3>
+<div class="flow-box">Intent Router → Conversation Agent → no file writes</div>
+
+<div class="page-break"></div>
+
+<h2 id="flags">9. Feature Flags</h2>
+<table>
+  <tr><th>Flag</th><th>Effect</th></tr>
+  <tr><td>ENABLE_UNIFIED_UPDATE_ENGINE</td><td>ScopeEngine for updates (default on)</td></tr>
+  <tr><td>ENABLE_LEGACY_PARALLEL_UPDATES</td><td>Old parallel/LangGraph paths (default off)</td></tr>
+  <tr><td>ENABLE_STREAMING_FILE_AGENT</td><td>Fast streaming coder (default on)</td></tr>
+  <tr><td>ENABLE_GREENFIELD_PARALLEL_WORKERS</td><td>Parallel page workers for rich CRM (default on)</td></tr>
+  <tr><td>REQUIRE_PLAN_CONFIRMATION</td><td>Confirmation Agent before generation</td></tr>
+  <tr><td>ENABLE_LANGGRAPH_WEBSITE_RUNTIME</td><td>Full LangGraph supervisor loop</td></tr>
+  <tr><td>ENABLE_FULL_DYNAMIC_GENERATION</td><td>Dynamic specialist registry</td></tr>
+  <tr><td>ENABLE_PATCH_APPROVAL</td><td>Pause before commit for user approval</td></tr>
+  <tr><td>ENABLE_CODE_INDEX</td><td>search_codebase + scope retrieval</td></tr>
+</table>
+
+<h2 id="adaptive">10. Adaptive Routing</h2>
+<table>
+  <tr><th>Route</th><th>Typical Execution</th></tr>
+  <tr><td>tiny_chat</td><td>No model call</td></tr>
+  <tr><td>small_code</td><td>Minimal standalone code</td></tr>
+  <tr><td>targeted_update</td><td>Scoped streaming patches</td></tr>
+  <tr><td>feature_update</td><td>Multi-file staged patches</td></tr>
+  <tr><td>large_project</td><td>Parallel workers (if legacy enabled)</td></tr>
+  <tr><td>full_generation</td><td>Greenfield parallel or blueprint agent</td></tr>
+</table>
+
+<h2 id="crm">11. CRM Use-Case Quick Reference</h2>
+<table>
+  <tr><th>Need</th><th>Agent(s)</th></tr>
+  <tr><td>Build CRM with auth → onboarding → dashboard</td><td>Intent Router → Confirmation → Greenfield Engine → Streaming/Parallel</td></tr>
+  <tr><td>Fix cart button</td><td>Intent Router → ScopeEngine → Streaming File Agent + interaction enrichment</td></tr>
+  <tr><td>Add FastAPI backend</td><td>Greenfield planner adds backend/*.py → Streaming File Agent</td></tr>
+  <tr><td>Change one color</td><td>ScopeEngine → targeted patch (may skip confirmation)</td></tr>
+  <tr><td>Write Python prime checker</td><td>Simple Code Writer Agent</td></tr>
+</table>
+
+<h2 id="files">12. Key Source Files</h2>
+<table>
+  <tr><th>Topic</th><th>File</th></tr>
+  <tr><td>Agent names list</td><td>docs/available_agent_names.md</td></tr>
+  <tr><td>Agent ↔ tool metadata</td><td>backend/agents/agent_tool_catalog.py</td></tr>
+  <tr><td>Runtime action map</td><td>backend/agents/runtime_agents/registry.py</td></tr>
+  <tr><td>Orchestrator decisions</td><td>backend/agents/orchestration/runner.py</td></tr>
+  <tr><td>Greenfield planning</td><td>backend/agents/streaming/task_planner.py</td></tr>
+  <tr><td>Update scope</td><td>backend/agents/update_engine/scope_engine.py</td></tr>
+  <tr><td>Executable tools</td><td>backend/agentic/tools/registry.py</td></tr>
+  <tr><td>Execution contract</td><td>backend/AGENTIC_EXECUTION_FLOW.md</td></tr>
+</table>
+
+<p class="footer">Worktual Agentic Flow Guide — internal architecture reference. For the latest behavior, verify against runtime_config.py and agent_tool_catalog.py in the repository.</p>
+
+</body>
+</html>
