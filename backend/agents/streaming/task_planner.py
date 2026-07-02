@@ -170,6 +170,14 @@ _NON_PAGE_LABEL_MARKERS = (
   "postcss",
   "mockdata",
   "theme file",
+  "initialize react",
+  "react framework",
+  "sustainable design",
+  "warm cream",
+  "clear typography",
+  "earthy clay",
+  "design tokens",
+  "postcss config",
 )
 
 
@@ -1251,19 +1259,55 @@ def _infer_greenfield_flow_page_paths(prompt: str) -> list[str]:
     ("analytics", "Analytics"),
   )
   paths: list[str] = []
-  for marker, page_name in flow_specs:
-    if marker in lowered:
-      paths.append(f"src/pages/{page_name}.jsx")
-  for segment in re.split(r"(?:->|→| then | after )", lowered):
+  flow_segments = re.split(r"(?:->|→|(?:\s+then\s+)|(?:\s+after\s+))", lowered)
+  if len(flow_segments) <= 1:
+    return []
+  for segment in flow_segments:
     cleaned = segment.strip()
     if not cleaned:
       continue
     for marker, page_name in flow_specs:
-      if marker in cleaned:
+      if re.search(rf"\b{re.escape(marker)}\b", cleaned):
         candidate = f"src/pages/{page_name}.jsx"
         if candidate not in paths:
           paths.append(candidate)
   return list(dict.fromkeys(paths))
+
+
+def _infer_crm_module_page_paths(prompt: str) -> list[str]:
+  lowered = str(prompt or "").lower()
+  tokens = _prompt_tokens(prompt)
+  if not (tokens & {"crm", "customer", "contacts", "deals", "pipeline", "saas"}):
+    return []
+  module_specs = (
+    (("dashboard",), "Dashboard"),
+    (("contact", "contacts"), "Contacts"),
+    (("deal", "deals", "pipeline"), "Deals"),
+    (("auth", "login", "signin", "sign-in"), "Auth"),
+    (("onboarding",), "Onboarding"),
+    (("settings",), "Settings"),
+    (("report", "reports", "analytics"), "Reports"),
+  )
+  paths: list[str] = []
+  for markers, page_name in module_specs:
+    if tokens & set(markers) or any(marker in lowered for marker in markers):
+      candidate = f"src/pages/{page_name}.jsx"
+      if candidate not in paths:
+        paths.append(candidate)
+  return paths
+
+
+def _prompt_requests_home_page(prompt: str) -> bool:
+  lowered = str(prompt or "").lower()
+  return bool(re.search(r"\b(?:home|landing)\s+(?:page|screen|view)\b", lowered) or re.search(r"\b(?:page|screen|view)\s+(?:for\s+)?home\b", lowered))
+
+
+def _prompt_requests_chat_workspace(prompt: str) -> bool:
+  tokens = _prompt_tokens(prompt)
+  return bool(tokens & {"chat", "copilot", "assistant", "autonomous"}) and bool(
+    re.search(r"\b(?:chat|copilot|assistant)\s+(?:page|workspace|screen|view)\b", str(prompt or "").lower())
+    or "chat workspace" in str(prompt or "").lower()
+  )
 
 
 def _infer_greenfield_backend_paths(prompt: str) -> list[str]:
@@ -1310,15 +1354,15 @@ def _infer_greenfield_website_type(prompt: str) -> str:
 
 def _infer_greenfield_page_paths(prompt: str, *, max_pages: int = 6) -> list[str]:
   flow_paths = _infer_greenfield_flow_page_paths(prompt)
+  crm_paths = _infer_crm_module_page_paths(prompt)
   label_paths = [_label_to_page_path(label) for label in _extract_prompt_page_labels(prompt, max_labels=max_pages)]
-  paths = list(dict.fromkeys([*flow_paths, *label_paths]))
+  paths = list(dict.fromkeys([*crm_paths, *flow_paths, *label_paths]))
   if not paths:
     paths = ["src/pages/Home.jsx"]
-  elif not any("home" in path.lower() for path in paths):
+  elif _prompt_requests_home_page(prompt) and not any("home" in path.lower() for path in paths):
     paths.insert(0, "src/pages/Home.jsx")
-  if tokens := _prompt_tokens(prompt):
-    if tokens & {"chat", "copilot", "assistant", "autonomous"}:
-      paths.append("src/pages/ChatWorkspace.jsx")
+  if _prompt_requests_chat_workspace(prompt):
+    paths.append("src/pages/ChatWorkspace.jsx")
   return list(dict.fromkeys(paths))[:max_pages]
 
 

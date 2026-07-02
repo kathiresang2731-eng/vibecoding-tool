@@ -95,6 +95,7 @@ def apply_deterministic_app_shell(
   files_map: dict[str, str],
   *,
   work_plan: dict[str, Any] | None = None,
+  force: bool = False,
 ) -> tuple[dict[str, str], bool]:
   page_paths = sorted(
     path
@@ -113,7 +114,8 @@ def apply_deterministic_app_shell(
 
   current_app = str(files_map.get("src/App.jsx") or "")
   if (
-    valid_pages
+    not force
+    and valid_pages
     and not app_shell_needs_repair(current_app, valid_pages)
     and not syntax_issues_for_content("src/App.jsx", current_app)
     and all(_component_name_from_path(path) in current_app for path in valid_pages)
