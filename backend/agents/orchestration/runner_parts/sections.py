@@ -9,7 +9,7 @@ from backend.agents.project_workspace import standalone_code_source_files
 from ..provider_utils import is_artifact_intent, provider_name
 from ..runtime_metadata import require_pipeline_response
 from ..tool_registry import log_tool_call
-from backend.agents.orchestration.constants import DEFAULT_TOOL_REGISTRY, PIPELINE_STAGE_ORDER, VISIBLE_AGENT_TEAM
+from backend.agents.orchestration.constants import DEFAULT_TOOL_REGISTRY, PIPELINE_STAGE_ORDER, visible_agents_for_intent, visible_tools_for_intent
 from backend.agents.orchestration.state import GenerationPipelineState
 
 _SIMPLE_CODE_CONTEXT_FILE_LIMIT = 4
@@ -110,7 +110,7 @@ def build_multi_agent_system(orchestrator: Any, state: GenerationPipelineState) 
       else "Generate a complete website from the user prompt."
     ),
     "intent": state.intent,
-    "agents": VISIBLE_AGENT_TEAM,
+    "agents": visible_agents_for_intent(state.intent),
     "active_agent": active_agent,
     "active_canonical_role": canonical_role_for_agent(active_agent),
     "routing_result": state.routing_result,
@@ -208,7 +208,7 @@ def build_gemini_tool_calling_setup(orchestrator: Any, state: GenerationPipeline
       "mode": "VALIDATED",
       "safety_boundary": "Python validates tool order, arguments, preview readiness, and file commits.",
     },
-    "tools": DEFAULT_TOOL_REGISTRY,
+    "tools": visible_tools_for_intent(state.intent, DEFAULT_TOOL_REGISTRY),
     "tool_call_sequence": tool_sequence,
   }
   log_tool_call("tool_calling_setup", "sequence", {"intent": state.intent, "tool_call_sequence": tool_sequence})
@@ -218,15 +218,41 @@ def build_gemini_tool_calling_setup(orchestrator: Any, state: GenerationPipeline
 
 def build_google_adk_usage(orchestrator: Any, state: GenerationPipelineState) -> dict[str, Any]:
   section = get_adk_mapping()
+  adk_agent_names = {
+    "Orchestrator": "orchestrator",
+    "Read-only Assistant Agent": "read_only_assistant_agent",
+    "Simple Code Writer Agent": "simple_code_writer_agent",
+    "Document Artifact Agent": "document_artifact_agent",
+    "Context Agent": "context_agent",
+    "Website Builder Agent": "website_builder_agent",
+    "Quality Gate Service": "quality_gate_service",
+    "Save Memory Service": "save_memory_service",
+  }
+  selected_adk_names = {
+    adk_agent_names.get(str(agent.get("name") or ""))
+    for agent in visible_agents_for_intent(state.intent)
+  }
+  selected_adk_names.discard(None)
   section["adk_agents"] = [
-    {"adk_type": "LlmAgent", "name": "intent_router_agent", "purpose": "Calls routing and conversation tools, including handle_greeting, before any website generation action."},
-    {"adk_type": "AgentTool", "name": "route_generation_action_tool", "purpose": "Callable routing tool used before any website generation action."},
-    {"adk_type": "AgentTool", "name": "handle_greeting_tool", "purpose": "Callable greeting response tool owned by intent_router_agent before website generation."},
-    {"adk_type": "LlmAgent", "name": "simple_code_writer_agent", "purpose": "Generates standalone code files directly for simple_code turns."},
-    {"adk_type": "AgentTool", "name": "generate_simple_code_file_tool", "purpose": "Callable code artifact generator used when the router selects simple_code."},
-    {"adk_type": "LlmAgent", "name": "document_artifact_agent", "purpose": "Generates documentation, reports, plans, research briefs, CSV, TXT, and PDF-ready Markdown files."},
-    {"adk_type": "AgentTool", "name": "generate_document_artifact_tool", "purpose": "Callable document artifact generator used when the router selects document_artifact."},
-    *section["adk_agents"],
+    agent
+    for agent in section.get("adk_agents", [])
+    if str(agent.get("name") or "") in selected_adk_names
+  ]
+  section["adk_tools"] = [
+    {"adk_type": "AgentTool", "name": "route_generation_action_tool", "owner_agent": "orchestrator", "purpose": "Callable routing tool used before any generation/update action."},
+    {"adk_type": "AgentTool", "name": "handle_greeting_tool", "owner_agent": "read_only_assistant_agent", "purpose": "Callable greeting response tool used before artifact generation."},
+    {"adk_type": "AgentTool", "name": "generate_simple_code_file_tool", "owner_agent": "simple_code_writer_agent", "purpose": "Callable code artifact generator used when the router selects simple_code."},
+    {"adk_type": "AgentTool", "name": "generate_document_artifact_tool", "owner_agent": "document_artifact_agent", "purpose": "Callable document artifact generator used when the router selects document_artifact."},
+  ]
+  selected_tool_names = {
+    str(tool.get("name") or "").strip()
+    for tool in visible_tools_for_intent(state.intent, DEFAULT_TOOL_REGISTRY)
+  }
+  section["adk_tools"] = [
+    tool
+    for tool in section["adk_tools"]
+    if str(tool.get("name") or "").replace("_tool", "") in selected_tool_names
+    or str(tool.get("name") or "").strip() in selected_tool_names
   ]
   state.prepared_sections["google_adk_usage"] = section
   return section

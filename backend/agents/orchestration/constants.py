@@ -7,6 +7,8 @@ from ..agent_tool_catalog import (
   INTERNAL_AGENT_REGISTRY,
   SPECIALIST_AGENT_REGISTRY,
   VISIBLE_AGENT_TEAM,
+  visible_agents_for_intent,
+  visible_tools_for_intent,
 )
 from ..schema import REQUIRED_RESPONSE_SECTIONS
 
@@ -70,4 +72,6 @@ __all__ = [
   "SPECIALIST_AGENT_REGISTRY",
   "TOOL_LOG_MAX_CHARS",
   "VISIBLE_AGENT_TEAM",
+  "visible_agents_for_intent",
+  "visible_tools_for_intent",
 ]

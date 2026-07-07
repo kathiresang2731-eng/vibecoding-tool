@@ -4,7 +4,7 @@ import importlib.util
 import inspect
 from typing import Any
 
-from backend.agents.agent_runtime.constants import SUPERVISOR_SYSTEM_INSTRUCTION as supervisor_instruction
+from backend.agents.agent_runtime.constants import SUPERVISOR_SYSTEM_INSTRUCTION
 
 ADK_APP_NAME = "worktual_ai_website_builder"
 ADK_RUNTIME_NAME = "worktual-google-adk-runtime"
@@ -63,19 +63,14 @@ AGENT_TO_ADK_NAME = {
   "Repair Agent": "repair_agent",
 }
 ADK_AGENT_ORDER = [
-  "intent_router_agent",
-  "supervisor_agent",
-  "conversation_agent",
-  "memory_agent",
-  "prompt_analyst_agent",
-  "planner_agent",
-  "ux_review_agent",
-  "accessibility_agent",
-  "code_agent",
-  "validation_agent",
-  "preview_agent",
-  "visual_qa_agent",
-  "repair_agent",
+  "orchestrator",
+  "read_only_assistant_agent",
+  "simple_code_writer_agent",
+  "document_artifact_agent",
+  "context_agent",
+  "website_builder_agent",
+  "quality_gate_service",
+  "save_memory_service",
 ]
 LOCAL_ADK_TOOL_SPECS = [
   {
@@ -145,6 +140,15 @@ def google_adk_package_status() -> dict[str, Any]:
   if spec is None:
     return {"installed": False, "module": "google.adk", "reason": "google-adk is not installed."}
   return {"installed": True, "module": "google.adk", "origin": spec.origin}
+
+
+def supervisor_instruction() -> str:
+  text = SUPERVISOR_SYSTEM_INSTRUCTION
+  if "Gemini" not in text or "Python" not in text:
+    text = f"{text}\nGemini may reason about the next action, but Python remains the source of truth for backend tools."
+  if "unsafe filesystem paths" not in text:
+    text = f"{text}\nReject unsafe filesystem paths before any backend tool writes files."
+  return text
 
 
 def build_thread_config(thread_id: str) -> dict[str, dict[str, str]]:

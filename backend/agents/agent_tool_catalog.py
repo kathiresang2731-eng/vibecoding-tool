@@ -489,6 +489,44 @@ INTERNAL_AGENT_REGISTRY: list[dict[str, Any]] = canonicalize_agent_list(ORCHESTR
 # and INTERNAL_AGENT_REGISTRY/FULL_AGENT_REGISTRY when execution internals are needed.
 DEFAULT_AGENT_TEAM: list[dict[str, Any]] = VISIBLE_AGENT_TEAM
 
+
+_VISIBLE_AGENT_NAMES_BY_INTENT: dict[str, tuple[str, ...]] = {
+  "greeting": (CANONICAL_ORCHESTRATOR,),
+  "needs_confirmation": (CANONICAL_ORCHESTRATOR,),
+  "needs_more_detail": (CANONICAL_ORCHESTRATOR, CANONICAL_READ_ONLY_ASSISTANT),
+  "question": (CANONICAL_ORCHESTRATOR, CANONICAL_READ_ONLY_ASSISTANT),
+  "general_query": (CANONICAL_ORCHESTRATOR, CANONICAL_READ_ONLY_ASSISTANT),
+  "web_search": (CANONICAL_ORCHESTRATOR, CANONICAL_READ_ONLY_ASSISTANT),
+  "project_info": (CANONICAL_ORCHESTRATOR, CANONICAL_READ_ONLY_ASSISTANT),
+  "simple_code": (CANONICAL_ORCHESTRATOR, CANONICAL_SIMPLE_CODE, CANONICAL_QUALITY_GATE, CANONICAL_SAVE_MEMORY),
+  "document_artifact": (CANONICAL_ORCHESTRATOR, CANONICAL_DOCUMENT_ARTIFACT, CANONICAL_QUALITY_GATE, CANONICAL_SAVE_MEMORY),
+  "website_update": (CANONICAL_ORCHESTRATOR, CANONICAL_CONTEXT_AGENT, CANONICAL_WEBSITE_BUILDER, CANONICAL_QUALITY_GATE, CANONICAL_SAVE_MEMORY),
+  "website_generation": (CANONICAL_ORCHESTRATOR, CANONICAL_CONTEXT_AGENT, CANONICAL_WEBSITE_BUILDER, CANONICAL_QUALITY_GATE, CANONICAL_SAVE_MEMORY),
+}
+
+
+_VISIBLE_TOOL_NAMES_BY_INTENT: dict[str, tuple[str, ...]] = {
+  "greeting": ("route_generation_action", "handle_greeting"),
+  "needs_confirmation": ("route_generation_action", "confirm_execution_brief"),
+  "needs_more_detail": ("route_generation_action", "request_website_details"),
+  "question": ("route_generation_action", "answer_question"),
+  "general_query": ("route_generation_action", "answer_general_query"),
+  "web_search": ("route_generation_action", "search_web"),
+  "project_info": ("route_generation_action", "summarize_current_project"),
+  "simple_code": ("route_generation_action", "generate_simple_code_file", "validate_generated_website"),
+  "document_artifact": ("route_generation_action", "generate_document_artifact", "validate_generated_website"),
+  "website_update": ("route_generation_action", "analyze_update_request", "generate_website_files", "validate_generated_website"),
+  "website_generation": ("route_generation_action", "analyze_prompt", "generate_website_files", "validate_generated_website"),
+}
+
+
+def visible_agents_for_intent(intent: str | None) -> list[dict[str, Any]]:
+  names = _VISIBLE_AGENT_NAMES_BY_INTENT.get(str(intent or "").strip(), ())
+  if not names:
+    return list(VISIBLE_AGENT_TEAM)
+  wanted = set(names)
+  return [dict(agent) for agent in VISIBLE_AGENT_TEAM if str(agent.get("name") or "") in wanted]
+
 SPECIALIST_AGENT_POLICIES: dict[str, dict[str, Any]] = {
   "content": {
     "name": "Content Specialist Agent",
@@ -908,6 +946,26 @@ DEFAULT_TOOL_REGISTRY: list[dict[str, Any]] = [
     "execution_order": 5,
   },
 ]
+
+
+def visible_tools_for_intent(intent: str | None, tools: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+  registry = list(tools or DEFAULT_TOOL_REGISTRY)
+  names = _VISIBLE_TOOL_NAMES_BY_INTENT.get(str(intent or "").strip(), ())
+  if not names:
+    return [dict(tool) for tool in registry]
+  wanted = set(names)
+  selected = [
+    dict(tool)
+    for tool in registry
+    if str(tool.get("name") or "").strip() in wanted
+  ]
+  selected_names = {str(tool.get("name") or "").strip() for tool in selected}
+  missing = [name for name in names if name not in selected_names]
+  if missing:
+    # Keep the surface honest without failing old clients when a legacy pseudo-tool
+    # is represented only in runtime traces.
+    selected.extend({"name": name, "source": "runtime_trace"} for name in missing)
+  return selected
 
 # ---------------------------------------------------------------------------
 # Runtime action descriptions (supervisor loop)

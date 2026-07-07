@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from ..constants import DEFAULT_TOOL_REGISTRY, VISIBLE_AGENT_TEAM
+from ..constants import DEFAULT_TOOL_REGISTRY, visible_agents_for_intent, visible_tools_for_intent
 from ..provider_utils import provider_name
 from ..state import GenerationPipelineState
 from .tools import build_selected_tool_arguments
@@ -67,7 +67,7 @@ def build_conversation_multi_agent_system(state: GenerationPipelineState, conver
       "mutation_allowed": False,
       "reason": "Conversation-only turns must not start artifact generation or project file writes.",
     },
-    "agents": VISIBLE_AGENT_TEAM,
+    "agents": visible_agents_for_intent(state.intent),
     "shared_state": {
       "prompt": state.user_prompt,
       "project_context": (
@@ -120,7 +120,7 @@ def build_conversation_gemini_tool_calling_setup(
       "mode": "VALIDATED",
       "safety_boundary": "No artifact tools are called for greeting/detail-only turns.",
     },
-    "tools": DEFAULT_TOOL_REGISTRY,
+    "tools": visible_tools_for_intent(state.intent, DEFAULT_TOOL_REGISTRY),
     "tool_call_sequence": ["route_generation_action", next_tool_name],
     "runtime_trace": {
       "runtime_status": "completed",

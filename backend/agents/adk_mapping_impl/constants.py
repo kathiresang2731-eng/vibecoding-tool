@@ -4,38 +4,51 @@ from __future__ import annotations
 ADK_AGENT_MAPPING = [
   {
     "adk_type": "SequentialAgent",
-    "name": "worktual_website_pipeline",
-    "purpose": "Runs prompt intake, planning, generation, validation, and packaging in a predictable order.",
+    "name": "orchestrator",
+    "purpose": "Routes the user turn and controls the legal phase order before any generation or file write.",
+    "internal_agents": ["intent_router_agent", "supervisor_agent"],
   },
   {
     "adk_type": "LlmAgent",
-    "name": "prompt_analyst_agent",
-    "purpose": "Understands the user's prompt, audience, tone, website type, and missing context.",
-  },
-  {
-    "adk_type": "ParallelAgent",
-    "name": "planning_parallel_agent",
-    "purpose": "Runs UX planning, content planning, and technical planning in parallel.",
+    "name": "read_only_assistant_agent",
+    "purpose": "Answers greetings, questions, and project-info requests without file mutation.",
+    "internal_agents": ["conversation_agent"],
   },
   {
     "adk_type": "LlmAgent",
-    "name": "ui_generation_agent",
-    "purpose": "Creates the responsive React and Tailwind component plan.",
+    "name": "simple_code_writer_agent",
+    "purpose": "Generates standalone code artifacts outside website generation.",
+    "internal_agents": ["simple_code_writer_agent"],
+  },
+  {
+    "adk_type": "LlmAgent",
+    "name": "document_artifact_agent",
+    "purpose": "Generates Markdown, TXT, CSV, research/planning, and PDF-ready document artifacts.",
+    "internal_agents": ["document_artifact_agent"],
+  },
+  {
+    "adk_type": "LlmAgent",
+    "name": "context_agent",
+    "purpose": "Loads project memory/files and prepares the smallest useful scope or plan.",
+    "internal_agents": ["memory_agent", "prompt_analyst_agent", "planner_agent"],
+  },
+  {
+    "adk_type": "LlmAgent",
+    "name": "website_builder_agent",
+    "purpose": "Generates or updates website files through the selected builder strategy.",
+    "internal_agents": ["code_agent", "scoped_update_agent", "streaming_file_agent"],
   },
   {
     "adk_type": "LoopAgent",
-    "name": "validation_repair_loop",
-    "purpose": "Repeats validation and repair until the generated website meets quality checks.",
-  },
-  {
-    "adk_type": "AgentTool",
-    "name": "code_generator_tool_agent",
-    "purpose": "Allows the orchestrator to call the code generator as a tool.",
+    "name": "quality_gate_service",
+    "purpose": "Validates artifacts, staged previews, visual QA, and repair readiness before commit.",
+    "internal_agents": ["ux_review_agent", "accessibility_agent", "validation_agent", "preview_agent", "visual_qa_agent"],
   },
   {
     "adk_type": "BaseAgent",
-    "name": "deployment_packager_agent",
-    "purpose": "Packages generated files and next actions for export or preview deployment.",
+    "name": "save_memory_service",
+    "purpose": "Commits accepted files and persists project memory after successful completion.",
+    "internal_agents": ["commit_agent", "memory_agent"],
   },
 ]
 

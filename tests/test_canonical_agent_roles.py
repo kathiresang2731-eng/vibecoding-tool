@@ -1,6 +1,13 @@
 from __future__ import annotations
 
-from backend.agents.agent_tool_catalog import DEFAULT_AGENT_TEAM, FULL_AGENT_REGISTRY, INTERNAL_AGENT_REGISTRY, VISIBLE_AGENT_TEAM
+from backend.agents.agent_tool_catalog import (
+  DEFAULT_AGENT_TEAM,
+  FULL_AGENT_REGISTRY,
+  INTERNAL_AGENT_REGISTRY,
+  VISIBLE_AGENT_TEAM,
+  visible_agents_for_intent,
+  visible_tools_for_intent,
+)
 from backend.agents.canonical_roles import (
   CANONICAL_CONTEXT_AGENT,
   CANONICAL_ORCHESTRATOR,
@@ -136,4 +143,37 @@ def test_runtime_projection_collapses_visible_duplicate_agents_but_keeps_tool_de
     "  - Scoped Update Agent -> RUN_SCOPED_UPDATE_AGENT",
     "Quality Gate Service:",
     "  - Validation Agent -> VALIDATE_PROJECT_ARTIFACT",
+  ]
+
+
+def test_visible_agents_and_tools_are_pruned_by_intent() -> None:
+  assert [agent["name"] for agent in visible_agents_for_intent("greeting")] == [
+    CANONICAL_ORCHESTRATOR,
+  ]
+  assert [tool["name"] for tool in visible_tools_for_intent("greeting")] == [
+    "route_generation_action",
+    "handle_greeting",
+  ]
+
+  simple_code_agents = [agent["name"] for agent in visible_agents_for_intent("simple_code")]
+  assert simple_code_agents == [
+    CANONICAL_ORCHESTRATOR,
+    "Simple Code Writer Agent",
+    CANONICAL_QUALITY_GATE,
+    CANONICAL_SAVE_MEMORY,
+  ]
+  assert CANONICAL_WEBSITE_BUILDER not in simple_code_agents
+  assert [tool["name"] for tool in visible_tools_for_intent("simple_code")] == [
+    "route_generation_action",
+    "generate_simple_code_file",
+    "validate_generated_website",
+  ]
+
+  update_agents = [agent["name"] for agent in visible_agents_for_intent("website_update")]
+  assert update_agents == [
+    CANONICAL_ORCHESTRATOR,
+    CANONICAL_CONTEXT_AGENT,
+    CANONICAL_WEBSITE_BUILDER,
+    CANONICAL_QUALITY_GATE,
+    CANONICAL_SAVE_MEMORY,
   ]

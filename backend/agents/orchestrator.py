@@ -34,6 +34,8 @@ from .orchestration.constants import (
   SPECIALIST_AGENT_REGISTRY,
   TOOL_LOG_MAX_CHARS,
   VISIBLE_AGENT_TEAM,
+  visible_agents_for_intent,
+  visible_tools_for_intent,
 )
 from .orchestration.conversation import (
   build_conversation_generation_response,
@@ -78,6 +80,8 @@ __all__ = [
   "SPECIALIST_AGENT_REGISTRY",
   "TOOL_LOG_MAX_CHARS",
   "VISIBLE_AGENT_TEAM",
+  "visible_agents_for_intent",
+  "visible_tools_for_intent",
   "WorktualGenerationOrchestrator",
   "apply_backend_routing_to_response",
   "build_a2a_communication",

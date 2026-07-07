@@ -17,18 +17,28 @@ def test_build_adk_agent_plan_defines_real_runtime_agent_sequence():
 
   assert plan["app_name"] == ADK_APP_NAME
   assert plan["model"] == "gemini-3.1-pro-preview"
-  assert plan["root_agent"] == "supervisor_agent"
+  assert plan["root_agent"] == "orchestrator"
   assert agent_names == ADK_AGENT_ORDER
-  assert "load_memory" in plan["agents"][3]["tools"]
-  assert "LOAD_PROJECT_MEMORY" in plan["agents"][3]["tools"]
-  assert "PERSIST_PROJECT_MEMORY" in plan["agents"][3]["tools"]
-  assert plan["agents"][6]["name"] == "ux_review_agent"
-  assert plan["agents"][7]["name"] == "accessibility_agent"
-  assert "WRITE_PROJECT_FILES" in plan["agents"][8]["tools"]
-  assert "VALIDATE_PROJECT_ARTIFACT" in plan["agents"][9]["tools"]
-  assert "BUILD_STAGED_PROJECT_PREVIEW" in plan["agents"][10]["tools"]
-  assert "BUILD_PROJECT_PREVIEW" in plan["agents"][10]["tools"]
-  assert "RUN_PREVIEW_VISUAL_QA" in plan["agents"][11]["tools"]
+  assert agent_names == [
+    "orchestrator",
+    "read_only_assistant_agent",
+    "simple_code_writer_agent",
+    "document_artifact_agent",
+    "context_agent",
+    "website_builder_agent",
+    "quality_gate_service",
+    "save_memory_service",
+  ]
+  assert "prompt_analyst_agent" not in agent_names
+  assert "prompt_analyst_agent" in plan["agents"][4]["internal_agents"]
+  assert "LOAD_PROJECT_MEMORY" in plan["agents"][4]["tools"]
+  assert "PERSIST_PROJECT_MEMORY" in plan["agents"][4]["tools"]
+  assert "code_agent" in plan["agents"][5]["internal_agents"]
+  assert "WRITE_PROJECT_FILES" in plan["agents"][5]["tools"]
+  assert "VALIDATE_PROJECT_ARTIFACT" in plan["agents"][6]["tools"]
+  assert "BUILD_STAGED_PROJECT_PREVIEW" in plan["agents"][6]["tools"]
+  assert "BUILD_PROJECT_PREVIEW" in plan["agents"][6]["tools"]
+  assert "RUN_PREVIEW_VISUAL_QA" in plan["agents"][6]["tools"]
 
 
 def test_supervisor_instruction_keeps_preview_and_filesystem_rules_explicit():
