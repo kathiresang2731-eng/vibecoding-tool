@@ -62,13 +62,13 @@ def greeting_fast_path_adk_usage(*, llm_authored: bool) -> dict[str, Any]:
     "adk_agents": [
       {
         "adk_type": "LlmAgent",
-        "name": "greeting_handler_agent",
-        "purpose": "Responds immediately to simple greetings and asks for the website brief.",
+        "name": "intent_router_agent",
+        "purpose": "Handles simple greeting turns by calling the greeting response tool before any generation flow starts.",
       },
       {
         "adk_type": "AgentTool",
         "name": "handle_greeting_tool",
-        "purpose": "Fast path for greeting-only turns without artifact generation.",
+        "purpose": "Intent Router owned fast path for greeting-only turns without artifact generation.",
       },
     ],
     "notes": [

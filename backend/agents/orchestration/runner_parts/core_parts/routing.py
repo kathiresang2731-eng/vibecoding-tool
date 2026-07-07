@@ -12,6 +12,7 @@ from backend.agents.chat_history import (
 from backend.agents.prompt_context import current_user_prompt
 from backend.agents.project_workspace import is_vite_scaffold_complete, meaningful_project_source_files
 from backend.agents.project_inspection import (
+  build_resolved_update_target_context,
   build_project_inspection_context,
   build_target_resolution,
   clarification_for_ambiguous_update_target,
@@ -75,6 +76,16 @@ def _looks_like_existing_project_update(prompt: str) -> bool:
   return bool(lowered) and any(marker in lowered for marker in _MODEL_UNAVAILABLE_UPDATE_MARKERS)
 
 
+def _looks_like_interaction_followup(prompt: str) -> bool:
+  lowered = current_user_prompt(prompt).strip().lower()
+  if not lowered:
+    return False
+  return (
+    ("button" in lowered or "click" in lowered or "clicked" in lowered)
+    and any(marker in lowered for marker in ("not working", "no action", "nothing happens", "does not work", "failed"))
+  )
+
+
 def build_routing_context(
   orchestrator: Any,
   user_prompt: str,
@@ -124,7 +135,16 @@ def build_routing_context(
     except Exception:
       return []
 
-  recovered_prompt = recover_update_clarification_prompt(execution_prompt, _chat_messages_for_routing())
+  def _project_files_for_routing() -> list[dict[str, Any]]:
+    if not orchestrator.project_id or orchestrator.tool_context is None or orchestrator.user is None:
+      return []
+    try:
+      return orchestrator.tool_context.store.list_files(orchestrator.project_id, orchestrator.user)
+    except Exception:
+      return []
+
+  routing_chat_messages = _chat_messages_for_routing()
+  recovered_prompt = recover_update_clarification_prompt(execution_prompt, routing_chat_messages)
   if recovered_prompt != execution_prompt:
     execution_prompt = recovered_prompt
     orchestrator._emit_progress(
@@ -133,7 +153,7 @@ def build_routing_context(
       status="completed",
       detail={"source": "chat_session_followup"},
     )
-  same_topic_prompt = enrich_same_topic_referential_prompt(execution_prompt, _chat_messages_for_routing())
+  same_topic_prompt = enrich_same_topic_referential_prompt(execution_prompt, routing_chat_messages)
   if same_topic_prompt != execution_prompt:
     execution_prompt = same_topic_prompt
     orchestrator._emit_progress(
@@ -142,16 +162,22 @@ def build_routing_context(
       status="completed",
       detail={"source": "chat_topic_history"},
     )
+  routing_project_files = _project_files_for_routing()
+  resolved_target_context = build_resolved_update_target_context(
+    execution_prompt,
+    routing_project_files,
+    chat_messages=routing_chat_messages,
+  )
+  if resolved_target_context and resolved_target_context not in execution_prompt:
+    execution_prompt = f"{execution_prompt}\n\n{resolved_target_context}"
+    orchestrator._emit_progress(
+      "routing.resolved_target_context",
+      "Resolved page/button context was attached before intent routing",
+      status="completed",
+      detail={"source": "target_resolution_memory"},
+    )
   initial_execution_prompt = execution_prompt
   orchestrator.initial_execution_prompt = initial_execution_prompt
-
-  def _project_files_for_routing() -> list[dict[str, Any]]:
-    if not orchestrator.project_id or orchestrator.tool_context is None or orchestrator.user is None:
-      return []
-    try:
-      return orchestrator.tool_context.store.list_files(orchestrator.project_id, orchestrator.user)
-    except Exception:
-      return []
 
   def _episodic_memories_for_routing() -> list[dict[str, Any]]:
     store = getattr(orchestrator.tool_context, "store", None) if orchestrator.tool_context is not None else None
@@ -374,6 +400,36 @@ def build_routing_context(
     routing_project_files,
     chat_messages=routing_chat_messages,
   )
+  if (
+    routing_result.get("intent") == "needs_more_detail"
+    and _looks_like_interaction_followup(execution_prompt)
+    and isinstance(routing_result.get("request_understanding"), dict)
+  ):
+    target_resolution = routing_result.get("target_resolution") if isinstance(routing_result.get("target_resolution"), dict) else {}
+    resolved_files = target_resolution.get("resolved_files") if isinstance(target_resolution.get("resolved_files"), list) else []
+    resolved_button = str(target_resolution.get("resolved_button") or "").strip()
+    if resolved_files and (resolved_button or "button" in execution_prompt.lower()):
+      routing_result = {
+        "intent": "website_update",
+        "next_action": "update_website",
+        "next_tool": "analyze_update_request",
+        "reason": "Same-topic memory and live project anchors resolved the active interaction target, so the request is actionable as a scoped website update.",
+        "request_understanding": {
+          "actionable": True,
+          "clarification_required": False,
+          "operation": "website_update",
+          "missing_fields": [],
+          "clarification_question": "",
+          "decision_source": "resolved_topic_interaction_guard",
+        },
+        "target_resolution": target_resolution,
+      }
+      orchestrator._emit_progress(
+        "routing.interaction_followup_resolved",
+        "Resolved same-topic interaction follow-up into a scoped website update",
+        status="completed",
+        detail={"target_resolution": target_resolution},
+      )
   if routing_result.get("intent") == "website_update":
     clarification = clarification_for_ambiguous_update_target(
       execution_prompt,

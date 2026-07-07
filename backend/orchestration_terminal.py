@@ -10,6 +10,11 @@ def orchestration_terminal_enabled() -> bool:
   return value not in {"0", "false", "no", "off"}
 
 
+def orchestration_terminal_verbose_enabled() -> bool:
+  value = os.getenv("WORKTUAL_ORCHESTRATION_TERMINAL_VERBOSE", "0").strip().lower()
+  return value not in {"0", "false", "no", "off", "compact"}
+
+
 def _short(value: Any, *, max_chars: int = 320) -> str:
   text = " ".join(str(value).split())
   if len(text) <= max_chars:
@@ -127,6 +132,10 @@ def print_orchestration_event(event: dict[str, Any]) -> None:
   message = str(event.get("message") or "")
   detail = event.get("detail") if isinstance(event.get("detail"), dict) else {}
 
+  if not orchestration_terminal_verbose_enabled():
+    _print_compact_orchestration_event(step=step, status=status, message=message, detail=detail)
+    return
+
   # User / model conversation
   if step == "generation.user_prompt":
     try:
@@ -148,8 +157,13 @@ def print_orchestration_event(event: dict[str, Any]) -> None:
     return
 
   if step == "agent.decision":
+    try:
+      from backend.agents.canonical_roles import canonicalize_progress_detail
+    except ImportError:
+      from agents.canonical_roles import canonicalize_progress_detail
+    detail = canonicalize_progress_detail(detail)
     workflow = detail.get("workflow") or detail.get("intent")
-    extra = _detail_block(detail, keys=("workflow", "selected_agents", "specialists_skipped", "task_count", "wave_count"))
+    extra = _detail_block(detail, keys=("canonical_role", "canonical_roles", "workflow", "internal_agent", "internal_agents", "selected_agents", "specialists_skipped", "task_count", "wave_count"))
     print(f"◆ Decision: {message}" + (f" ({extra})" if extra else ""), flush=True)
     return
 
@@ -342,6 +356,89 @@ def print_orchestration_event(event: dict[str, Any]) -> None:
     extra = _detail_block(detail, keys=("intent", "engine", "workflow", "model"))
     if message:
       print(f"  · {step}: {_short(message)}" + (f" | {extra}" if extra else ""), flush=True)
+
+
+def _print_compact_orchestration_event(*, step: str, status: str, message: str, detail: dict[str, Any]) -> None:
+  if step == "generation.user_prompt":
+    try:
+      from backend.agents.prompt_context import current_user_prompt
+    except ImportError:
+      from agents.prompt_context import current_user_prompt
+    print(f"\n▶ User query: {_short(current_user_prompt(message), max_chars=220)}", flush=True)
+    return
+
+  if step in {"orchestrator.starting", "agent.run.started"}:
+    print(f"▶ Orchestrator: {_short(message, max_chars=180)}", flush=True)
+    return
+
+  if step == "agent.decision":
+    try:
+      from backend.agents.canonical_roles import canonicalize_progress_detail
+    except ImportError:
+      from agents.canonical_roles import canonicalize_progress_detail
+    normalized = canonicalize_progress_detail(detail)
+    role = normalized.get("canonical_role") or normalized.get("canonical_roles") or normalized.get("selected_agent") or "Agent"
+    tool = normalized.get("tool") or normalized.get("next_tool") or normalized.get("workflow") or normalized.get("intent") or ""
+    print(
+      f"◆ Agent decision: {_short(role, max_chars=80)}"
+      + (f" -> {_short(tool, max_chars=80)}" if tool else "")
+      + (f" — {_short(message, max_chars=140)}" if message else ""),
+      flush=True,
+    )
+    return
+
+  if step == "route.intent":
+    print(
+      f"◆ Intent Router -> intent={detail.get('intent')} action={detail.get('next_action')} tool={detail.get('next_tool')}",
+      flush=True,
+    )
+    return
+
+  if step == "tool.requested":
+    tool = detail.get("tool") or "?"
+    agent = detail.get("agent") or detail.get("selected_agent") or ""
+    print(f"  Tool: {agent + ' -> ' if agent else ''}{tool}", flush=True)
+    return
+
+  if step.startswith("tool."):
+    tool = detail.get("tool") or step.replace("tool.", "")
+    path = detail.get("path") or ""
+    agent = detail.get("agent") or detail.get("parallel_worker") or ""
+    if tool not in {
+      "write_file",
+      "str_replace",
+      "generate_simple_code_file",
+      "generate_document_artifact",
+      "generate_update_artifact",
+      "validate_generated_website",
+      "VALIDATE_PROJECT_ARTIFACT",
+      "WRITE_PROJECT_FILES",
+      "PERSIST_PROJECT_MEMORY",
+    } and status not in {"failed", "degraded"}:
+      return
+    print(
+      f"  Tool: {agent + ' -> ' if agent else ''}{tool}"
+      + (f" {path}" if path else "")
+      + (f" — {_short(message, max_chars=120)}" if message and not path else ""),
+      flush=True,
+    )
+    return
+
+  if step in {"files.persisting", "files.persisted", "files.materialized"}:
+    paths = detail.get("paths") or []
+    count = detail.get("file_count") or len(paths)
+    print(f"💾 {status}: {_short(message, max_chars=140)} ({count} file(s))", flush=True)
+    return
+
+  if step in {"streaming.file_agent.completed", "agent.runtime.loop.completed", "orchestrator.completed"}:
+    changed = detail.get("changed_paths") or []
+    suffix = f" — changed: {', '.join(changed[:5])}" if changed else ""
+    print(f"✓ {_short(message, max_chars=160)}{suffix}", flush=True)
+    return
+
+  if status in {"failed", "degraded"} or ".failed" in step:
+    err = detail.get("error") or detail.get("raw_error") or message
+    print(f"✗ {status.upper()} {step}: {_short(err, max_chars=220)}", flush=True)
 
 
 def print_user_query(prompt: str) -> None:

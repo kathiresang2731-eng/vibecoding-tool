@@ -429,7 +429,7 @@ class LLMContractTests(unittest.TestCase):
     self.assertEqual(runtime["steps"][0]["action"], "update_failed_before_commit")
     self.assertNotEqual(runtime.get("source"), "legacy_response_trace")
 
-  def test_greeting_prompt_uses_greeting_agent_and_dynamic_conversation_response(self):
+  def test_greeting_prompt_uses_intent_router_tool_and_dynamic_conversation_response(self):
     control = FakeControlClient(valid_generation(), routing_payload=routing_result("greeting"))
     artifact = FakeGeminiClient(valid_generation())
     result = generate_website(
@@ -440,12 +440,12 @@ class LLMContractTests(unittest.TestCase):
 
     self.assertEqual(list(result.keys()), REQUIRED_RESPONSE_SECTIONS)
     self.assertEqual(result["multi_agent_system"]["intent"], "greeting")
-    self.assertEqual(result["multi_agent_system"]["active_agent"], "Greeting Handler Agent")
+    self.assertEqual(result["multi_agent_system"]["active_agent"], "Intent Router Agent")
     self.assertEqual(result["multi_agent_system"]["conversation_response"]["message"], "Dynamic test response from the conversation agent.")
     self.assertEqual(result["gemini_tool_calling_setup"]["tool_call_sequence"], ["route_generation_action", "handle_greeting"])
     self.assertEqual(result["gemini_tool_calling_setup"]["runtime_trace"]["tool_calls"][0]["name"], "route_generation_action")
     self.assertEqual(result["gemini_tool_calling_setup"]["runtime_trace"]["tool_calls"][1]["name"], "handle_greeting")
-    self.assertEqual(control.call_count, 1)
+    self.assertEqual(control.call_count, 2)
     self.assertEqual(artifact.call_count, 0)
     self.assertIn("Write the assistant response for Worktual AI Dev", control.received_prompt)
     self.assertEqual(control.trace_labels, ["route_generation_action", "handle_greeting"])

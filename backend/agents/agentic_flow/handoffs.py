@@ -10,6 +10,8 @@ def build_handoffs(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
   for source, target in zip(steps, steps[1:]):
     source_agent = text_value(source.get("agent"), "Source Agent")
     target_agent = text_value(target.get("agent"), "Target Agent")
+    source_internal_agent = text_value(source.get("internal_agent"), source_agent)
+    target_internal_agent = text_value(target.get("internal_agent"), target_agent)
     source_action = text_value(source.get("action"), "completed_agent_step")
     target_action = text_value(target.get("action"), "run_next_agent_step")
     source_output = object_value(source.get("output"))
@@ -21,6 +23,8 @@ def build_handoffs(steps: list[dict[str, Any]]) -> list[dict[str, Any]]:
         "to_agent": target_agent,
         "sender": source_agent,
         "receiver": target_agent,
+        "from_internal_agent": source_internal_agent,
+        "to_internal_agent": target_internal_agent,
         "status": "completed",
         "task": f"Run {target_action} after {source_action}.",
         "input": target_input,

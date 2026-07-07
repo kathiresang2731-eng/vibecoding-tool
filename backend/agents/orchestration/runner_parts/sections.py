@@ -3,12 +3,13 @@ from __future__ import annotations
 from typing import Any
 
 from backend.agents.adk_mapping import get_adk_mapping
+from backend.agents.canonical_roles import canonical_role_for_agent
 from backend.agents.prompt_context import current_user_prompt
 from backend.agents.project_workspace import standalone_code_source_files
 from ..provider_utils import is_artifact_intent, provider_name
 from ..runtime_metadata import require_pipeline_response
 from ..tool_registry import log_tool_call
-from backend.agents.orchestration.constants import DEFAULT_AGENT_TEAM, DEFAULT_TOOL_REGISTRY, PIPELINE_STAGE_ORDER
+from backend.agents.orchestration.constants import DEFAULT_TOOL_REGISTRY, PIPELINE_STAGE_ORDER, VISIBLE_AGENT_TEAM
 from backend.agents.orchestration.state import GenerationPipelineState
 
 _SIMPLE_CODE_CONTEXT_FILE_LIMIT = 4
@@ -80,7 +81,7 @@ def build_multi_agent_system(orchestrator: Any, state: GenerationPipelineState) 
   is_document_artifact = state.intent == "document_artifact"
   is_update = state.intent == "website_update"
   active_agent = (
-    "Greeting Handler Agent"
+    "Intent Router Agent"
     if is_greeting
     else "Requirement Confirmation Agent"
     if needs_confirmation
@@ -94,7 +95,7 @@ def build_multi_agent_system(orchestrator: Any, state: GenerationPipelineState) 
   )
   section = {
     "goal": (
-      "Handle a greeting and collect the website brief."
+      "Use the Intent Router greeting tool to respond and collect the website brief."
       if is_greeting
       else "Present the execution brief and wait for explicit user confirmation."
       if needs_confirmation
@@ -109,8 +110,9 @@ def build_multi_agent_system(orchestrator: Any, state: GenerationPipelineState) 
       else "Generate a complete website from the user prompt."
     ),
     "intent": state.intent,
-    "agents": DEFAULT_AGENT_TEAM,
+    "agents": VISIBLE_AGENT_TEAM,
     "active_agent": active_agent,
+    "active_canonical_role": canonical_role_for_agent(active_agent),
     "routing_result": state.routing_result,
     "conversation_response": {},
     "shared_state": {
@@ -217,10 +219,9 @@ def build_gemini_tool_calling_setup(orchestrator: Any, state: GenerationPipeline
 def build_google_adk_usage(orchestrator: Any, state: GenerationPipelineState) -> dict[str, Any]:
   section = get_adk_mapping()
   section["adk_agents"] = [
-    {"adk_type": "LlmAgent", "name": "intent_router_agent", "purpose": "Calls the routing tool that selects greeting handling, detail collection, or website generation."},
+    {"adk_type": "LlmAgent", "name": "intent_router_agent", "purpose": "Calls routing and conversation tools, including handle_greeting, before any website generation action."},
     {"adk_type": "AgentTool", "name": "route_generation_action_tool", "purpose": "Callable routing tool used before any website generation action."},
-    {"adk_type": "LlmAgent", "name": "greeting_handler_agent", "purpose": "Responds to turns routed as greeting and asks for the website brief before generation."},
-    {"adk_type": "AgentTool", "name": "handle_greeting_tool", "purpose": "Callable greeting response tool used by the orchestrator before website generation."},
+    {"adk_type": "AgentTool", "name": "handle_greeting_tool", "purpose": "Callable greeting response tool owned by intent_router_agent before website generation."},
     {"adk_type": "LlmAgent", "name": "simple_code_writer_agent", "purpose": "Generates standalone code files directly for simple_code turns."},
     {"adk_type": "AgentTool", "name": "generate_simple_code_file_tool", "purpose": "Callable code artifact generator used when the router selects simple_code."},
     {"adk_type": "LlmAgent", "name": "document_artifact_agent", "purpose": "Generates documentation, reports, plans, research briefs, CSV, TXT, and PDF-ready Markdown files."},

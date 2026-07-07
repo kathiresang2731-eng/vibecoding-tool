@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from backend.agents.canonical_roles import canonicalize_agent_list
+
 
 AGENTIC_RUNTIME_NAME = "worktual-python-agentic-flow"
 
-AGENT_ROSTER = [
+AGENT_ROSTER = canonicalize_agent_list([
   {
     "name": "Intent Router Agent",
     "mode": "diagnostic",
@@ -69,4 +71,4 @@ AGENT_ROSTER = [
     "mode": "descriptive",
     "responsibility": "Prepare concise project memory for future turns.",
   },
-]
+])

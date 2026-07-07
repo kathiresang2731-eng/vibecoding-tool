@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 
-def test_project_workspace_snapshot_prints_resolved_input_and_output_paths(tmp_path, capsys):
+def test_project_workspace_snapshot_prints_resolved_input_and_output_paths(tmp_path, capsys, monkeypatch):
   from backend.api.generation_parts.project import print_project_workspace_snapshot
+
+  monkeypatch.setenv("WORKTUAL_ORCHESTRATION_TERMINAL_VERBOSE", "1")
 
   project = {"id": "project-1", "name": "Demo", "local_path": str(tmp_path)}
   files = [
@@ -34,6 +36,7 @@ def test_orchestration_terminal_prints_workspace_loaded_paths(monkeypatch, capsy
   from backend.orchestration_terminal import print_orchestration_event
 
   monkeypatch.setenv("WORKTUAL_ORCHESTRATION_TERMINAL", "1")
+  monkeypatch.setenv("WORKTUAL_ORCHESTRATION_TERMINAL_VERBOSE", "1")
   print_orchestration_event(
     {
       "step": "workspace.files.loaded",
@@ -62,6 +65,7 @@ def test_orchestration_terminal_prints_zero_file_failure_with_context(monkeypatc
   from backend.orchestration_terminal import print_orchestration_event
 
   monkeypatch.setenv("WORKTUAL_ORCHESTRATION_TERMINAL", "1")
+  monkeypatch.setenv("WORKTUAL_ORCHESTRATION_TERMINAL_VERBOSE", "1")
   print_orchestration_event(
     {
       "step": "files.missing",
@@ -90,6 +94,7 @@ def test_orchestration_terminal_prints_scope_targets_with_function_and_line(monk
   from backend.orchestration_terminal import print_orchestration_event
 
   monkeypatch.setenv("WORKTUAL_ORCHESTRATION_TERMINAL", "1")
+  monkeypatch.setenv("WORKTUAL_ORCHESTRATION_TERMINAL_VERBOSE", "1")
   print_orchestration_event(
     {
       "step": "scope.resolved",
@@ -128,6 +133,7 @@ def test_orchestration_terminal_prints_tool_function_location(monkeypatch, capsy
   from backend.orchestration_terminal import print_orchestration_event
 
   monkeypatch.setenv("WORKTUAL_ORCHESTRATION_TERMINAL", "1")
+  monkeypatch.setenv("WORKTUAL_ORCHESTRATION_TERMINAL_VERBOSE", "1")
   print_orchestration_event(
     {
       "step": "tool.str_replace",

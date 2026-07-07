@@ -5,8 +5,10 @@ from typing import Any
 
 try:
   from backend.audit_logging import log_query_event
+  from backend.orchestration_terminal import orchestration_terminal_verbose_enabled
 except ImportError:
   from audit_logging import log_query_event
+  from orchestration_terminal import orchestration_terminal_verbose_enabled
 
 from ..constants import TOOL_LOG_MAX_CHARS
 
@@ -25,4 +27,5 @@ def log_tool_call(tool_name: str, phase: str, payload: Any) -> None:
     status="failed" if "fail" in phase else "completed",
     payload={"tool_name": tool_name, "phase": phase, "payload": payload},
   )
-  print(f"[WorktualToolCall] {tool_name}.{phase}: {serialized}", flush=True)
+  if orchestration_terminal_verbose_enabled():
+    print(f"[WorktualToolCall] {tool_name}.{phase}: {serialized}", flush=True)

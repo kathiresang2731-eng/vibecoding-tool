@@ -1188,6 +1188,7 @@ def run_streaming_file_agent(
         chat_session_id=chat_session_id,
         chat_topic_id=chat_topic_id,
         project_name=project_name,
+        target_resolution=target_resolution,
         emit_progress=emit,
       )
       if resolved_scope.update_mode == "needs_clarification" and not resolved_scope.candidate_files:

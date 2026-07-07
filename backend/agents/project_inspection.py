@@ -180,7 +180,7 @@ def clarification_for_ambiguous_update_target(
   lowered = str(prompt or "").lower()
   if not _looks_like_ambiguous_button_issue(lowered):
     return None
-  if resolved_button:
+  if resolved_button and _is_referential_button_followup(lowered):
     return None
   facts = extract_button_facts(selected_file.get("content", ""))
   labels = [str(label).strip() for label in facts.get("labels") or [] if str(label).strip()]
@@ -197,6 +197,31 @@ def clarification_for_ambiguous_update_target(
       f"Visible buttons I found: {label_preview}."
     ),
   }
+
+
+def build_resolved_update_target_context(
+  prompt: str,
+  files: list[dict[str, Any]] | None,
+  *,
+  chat_messages: list[dict[str, Any]] | None = None,
+) -> str:
+  resolution = build_target_resolution(prompt, files, chat_messages=chat_messages)
+  path = str((resolution.get("resolved_files") or [""])[0] if isinstance(resolution.get("resolved_files"), list) and resolution.get("resolved_files") else "").strip()
+  page = str(resolution.get("resolved_page") or "").strip()
+  button = str(resolution.get("resolved_button") or "").strip()
+  if not path and not page and not button:
+    return ""
+  lines = [
+    "Resolved active update target from same-topic memory and live project anchors:",
+  ]
+  if page:
+    lines.append(f"- page: {page}")
+  if path:
+    lines.append(f"- file: {path}")
+  if button:
+    lines.append(f"- button: {button}")
+  lines.append("Use this resolved target unless the latest message explicitly changes the page or control.")
+  return "\n".join(lines)
 
 
 def select_project_info_files(
@@ -450,6 +475,14 @@ def _looks_like_ambiguous_button_issue(prompt: str) -> bool:
     re.search(r"\b(should|when clicked|on click|redirect|navigate|open|show|close|delete|submit|filter|reset|save)\b", lowered)
   )
   return ambiguous_reference and missing_expected_behavior
+
+
+def _is_referential_button_followup(prompt: str) -> bool:
+  lowered = str(prompt or "").lower()
+  return bool(
+    re.search(r"\b(that|this|it)\s+button\b", lowered)
+    or asks_with_contextual_reference(lowered)
+  )
 
 
 def _meaningful_element_tokens(value: str) -> list[str]:

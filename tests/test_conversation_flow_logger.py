@@ -69,6 +69,17 @@ def test_conversation_flow_logger_writes_plain_daily_log_file(tmp_path):
         "infra_flow_process": ["api.generation.request_received"],
         "runtime_tool_sequence": ["route_generation_action", "generate_document_artifact"],
         "runtime_steps": ["chief_orchestrator", "document_artifact_agent"],
+        "runtime_internal_steps": ["Intent Router Agent", "Document Artifact Agent"],
+        "runtime_step_details": [
+          "Intent Router Agent -> route_generation_action",
+          "Document Artifact Agent -> generate_document_artifact",
+        ],
+        "runtime_phase_details": [
+          "Orchestrator:",
+          "  - Intent Router Agent -> route_generation_action",
+          "Document Artifact Agent:",
+          "  - Document Artifact Agent -> generate_document_artifact",
+        ],
         "workspace_candidate_pool": ["src/App.jsx", "src/pages/Reports.jsx"],
       },
     )
@@ -96,6 +107,12 @@ def test_conversation_flow_logger_writes_plain_daily_log_file(tmp_path):
   assert "generate_document_artifact" in text
   assert "runtime_steps:" in text
   assert "document_artifact_agent" in text
+  assert "runtime_internal_steps:" in text
+  assert "Intent Router Agent" in text
+  assert "runtime_step_details:" in text
+  assert "Document Artifact Agent -> generate_document_artifact" in text
+  assert "runtime_phase_details:" in text
+  assert "Orchestrator:" in text
   assert "workspace_candidate_pool:" in text
   assert "src/pages/Reports.jsx" in text
 
@@ -224,42 +241,45 @@ def test_greeting_preflight_uses_semantic_fallback_when_runtime_capture_is_only_
   assert normalized["process"] == []
 
 
-def test_tiny_chat_preflight_fallback_is_minimal_and_repo_relative():
+def test_tiny_chat_preflight_without_runtime_capture_does_not_invent_static_flow(tmp_path):
   module_path = Path(__file__).resolve().parents[1] / "backend" / "api" / "generation_parts" / "flow_trace.py"
   spec = importlib.util.spec_from_file_location("test_flow_trace_module_fallback", module_path)
   assert spec and spec.loader
   module = importlib.util.module_from_spec(spec)
   spec.loader.exec_module(module)
-
-  files = module._backend_flow_files_for_event(
-    event_type="conversation.flow.preflight",
-    adaptive_route={"route": "tiny_chat"},
+  logger = ConversationFlowLogger(
+    root_dir=tmp_path / "logs",
+    now=lambda: datetime(2026, 7, 4, 20, 10, tzinfo=timezone.utc),
   )
-  functions = module._backend_flow_functions_for_event(
-    event_type="conversation.flow.preflight",
-    adaptive_route={"route": "tiny_chat"},
-  )
-  process = module._backend_flow_process_for_event(
-    event_type="conversation.flow.preflight",
-    adaptive_route={"route": "tiny_chat"},
+  context = RunTelemetryContext(
+    request_id="req-no-capture",
+    user_id="user-no-capture",
+    project_id="project-no-capture",
+    agent_run_id="agent-run-no-capture",
+    generation_run_id="generation-run-no-capture",
   )
 
-  assert files == [
-    "backend/api/generation_parts/preflight.py",
-    "backend/agents/request_complexity.py",
-    "backend/agents/memory/topic_clustering.py",
-  ]
-  assert list(functions) == [
-    "backend/agents/request_complexity.py",
-    "backend/agents/memory/topic_clustering.py",
-    "backend/api/generation_parts/preflight.py",
-  ]
-  assert process == [
-    "api.generation.request_received",
-    "memory.topic.resolve_chat_topic",
-    "adaptive_route.tiny_chat",
-    "conversation.flow.preflight_logged",
-  ]
+  set_conversation_flow_logger_for_tests(logger)
+  try:
+    begin_backend_flow_capture()
+    with telemetry_scope(context):
+      module.log_generation_flow_trace(
+        "conversation.flow.preflight",
+        prompt="hey",
+        project_id="project-no-capture",
+        adaptive_route={"route": "tiny_chat"},
+        status="running",
+      )
+  finally:
+    set_conversation_flow_logger_for_tests(None)
+
+  text = (tmp_path / "logs" / "teminal_testinh_2026-07-04.log").read_text(encoding="utf-8")
+  assert "backend_flow_capture_status: missing" in text
+  assert "backend_flow_files: []" in text
+  assert "backend_flow_functions: []" in text
+  assert "backend_flow_process: []" in text
+  assert "backend/agents/request_complexity.py" not in text
+  assert "adaptive_route.tiny_chat" not in text
 
 
 def test_existing_agentic_runtime_accepts_tool_source_of_truth_with_tool_calls_only():

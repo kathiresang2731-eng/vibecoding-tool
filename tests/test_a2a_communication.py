@@ -67,8 +67,10 @@ def test_build_a2a_communication_for_website_generation_transcript():
   assert transcript["ack_count"] == transcript["message_count"]
   assert transcript["validation"]["status"] == "valid"
   assert [message["sequence"] for message in transcript["messages"]] == list(range(1, len(flow["steps"])))
-  assert transcript["messages"][0]["from_agent"] == "Intent Router Agent"
-  assert transcript["messages"][0]["to_agent"] == "Prompt Analyst Agent"
+  assert transcript["messages"][0]["from_agent"] == "Orchestrator"
+  assert transcript["messages"][0]["to_agent"] == "Context Agent"
+  assert transcript["messages"][0]["from_internal_agent"] == "Intent Router Agent"
+  assert transcript["messages"][0]["to_internal_agent"] == "Prompt Analyst Agent"
   assert transcript["messages"][2]["channel"] == "ux_review"
   assert transcript["messages"][3]["channel"] == "accessibility"
   assert transcript["messages"][4]["channel"] == "artifact"
@@ -94,7 +96,11 @@ def test_build_a2a_communication_for_conversation_never_hands_off_to_code_agent(
 
   assert transcript["branch"] == "conversation"
   assert [message["to_agent"] for message in transcript["messages"]] == [
-    "Conversation Agent",
+    "Orchestrator",
+    "Context Agent",
+  ]
+  assert [message["to_internal_agent"] for message in transcript["messages"]] == [
+    "Intent Router Agent",
     "Memory Agent",
   ]
   assert all(message["channel"] != "artifact" for message in transcript["messages"])

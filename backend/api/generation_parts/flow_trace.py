@@ -152,249 +152,6 @@ def _normalize_runtime_capture(
   }
 
 
-def _backend_flow_functions_for_event(
-  *,
-  event_type: str,
-  routing_result: dict[str, Any] | None = None,
-  adaptive_route: dict[str, Any] | None = None,
-) -> dict[str, list[str]]:
-  route = routing_result if isinstance(routing_result, dict) else {}
-  adaptive = adaptive_route if isinstance(adaptive_route, dict) else {}
-  intent = str(route.get("intent") or "").strip().lower()
-  adaptive_route_name = str(adaptive.get("route") or "").strip().lower()
-
-  if adaptive_route_name == "tiny_chat" and event_type.endswith("preflight"):
-    return {
-      "backend/agents/request_complexity.py": ["classify_adaptive_request_route"],
-      "backend/agents/memory/topic_clustering.py": ["resolve_chat_topic"],
-      "backend/api/generation_parts/preflight.py": ["prepare_generation_pipeline_inputs"],
-    }
-
-  mapping: dict[str, list[str]] = {
-    "backend/api/generation.py": [
-      "_run_generation_pipeline_unlocked",
-      "log_generation_flow_trace",
-    ],
-    "backend/api/generation_parts/preflight.py": [
-      "prepare_generation_pipeline_inputs",
-    ],
-    "backend/api/generation_parts/postflight.py": [
-      "finalize_generation_success",
-    ],
-    "backend/api/generation_parts/failure.py": [
-      "report_generation_failure",
-    ],
-    "backend/api/generation_parts/flow_trace.py": [
-      "log_generation_flow_trace",
-      "_backend_flow_files_for_event",
-      "_backend_flow_functions_for_event",
-      "_backend_flow_process_for_event",
-    ],
-    "backend/agents/chat_history.py": [
-      "apply_chat_context_budget",
-      "model_chat_history_messages_for_prompt",
-    ],
-    "backend/agents/memory/topic_clustering.py": [
-      "resolve_chat_topic",
-    ],
-    "backend/agents/orchestration/runner_parts/core.py": [
-      "WorktualGenerationOrchestrator.run",
-    ],
-    "backend/agents/orchestration/runner_parts/execution.py": [
-      "run_orchestration_flow",
-    ],
-    "backend/agents/orchestration/runner_parts/core_parts/routing.py": [
-      "route_generation_action_tool",
-      "build_target_resolution",
-      "build_project_inspection_context",
-    ],
-  }
-
-  if event_type.endswith("preflight"):
-    mapping["backend/agents/request_complexity.py"] = ["classify_adaptive_request_route"]
-    mapping["backend/agents/memory/context.py"] = ["build_agent_flow_memory_block"]
-
-  if adaptive_route_name in {"conversation", "routing_pending", "tiny_chat"}:
-    mapping["backend/agents/orchestration/conversation.py"] = ["generate_conversation_response"]
-    mapping["backend/agents/orchestration/conversation_parts/assembly.py"] = ["build_conversation_generation_response"]
-
-  if intent == "document_artifact":
-    mapping["backend/agents/orchestration/runner_parts/document_artifact.py"] = [
-      "run_document_artifact_flow",
-    ]
-    mapping["backend/agents/orchestration/artifact_response_parts/normalization.py"] = [
-      "normalize_artifact_response",
-    ]
-    mapping["backend/agents/orchestration/artifact_response_parts/response.py"] = [
-      "build_artifact_generation_response",
-    ]
-    mapping["backend/agents/prompting/builders.py"] = ["build_document_artifact_prompt"]
-    mapping["backend/agents/prompting/instructions.py"] = ["DOCUMENT_ARTIFACT_SYSTEM_INSTRUCTION"]
-  elif intent == "project_info":
-    mapping["backend/agents/project_inspection.py"] = [
-      "build_project_inspection_context",
-      "build_target_resolution",
-      "build_grounded_project_info_response",
-    ]
-    mapping["backend/agents/orchestration/conversation.py"] = ["generate_conversation_response"]
-    mapping["backend/agents/orchestration/conversation_parts/response.py"] = [
-      "generate_conversation_response",
-      "clean_conversation_message",
-    ]
-  elif intent in {"website_update", "website_generation", "simple_code"}:
-    mapping["backend/agents/agent_runtime/loop_core.py"] = ["run_agent_runtime_loop"]
-    mapping["backend/agents/agent_runtime/state.py"] = ["build_requirement_trace"]
-    mapping["backend/agents/agent_runtime/actions/analysis_parts/core.py"] = [
-      "run_analysis_stage",
-      "apply_targeted_update_shortcut",
-    ]
-    mapping["backend/agents/agent_runtime/actions/project_io_parts/commit.py"] = [
-      "apply_generated_files",
-      "write_linked_project_files",
-    ]
-
-  return mapping
-
-
-def _backend_flow_process_for_event(
-  *,
-  event_type: str,
-  routing_result: dict[str, Any] | None = None,
-  adaptive_route: dict[str, Any] | None = None,
-) -> list[str]:
-  route = routing_result if isinstance(routing_result, dict) else {}
-  adaptive = adaptive_route if isinstance(adaptive_route, dict) else {}
-  intent = str(route.get("intent") or "").strip().lower()
-  adaptive_route_name = str(adaptive.get("route") or "").strip().lower()
-
-  if adaptive_route_name == "tiny_chat" and event_type.endswith("preflight"):
-    return [
-      "api.generation.request_received",
-      "memory.topic.resolve_chat_topic",
-      "adaptive_route.tiny_chat",
-      "conversation.flow.preflight_logged",
-    ]
-
-  process = [
-    "api.generation.request_received",
-    "api.generation.preflight_started",
-    "memory.topic.resolve_chat_topic",
-    f"adaptive_route.{adaptive_route_name or 'unknown'}",
-  ]
-  if event_type.endswith("preflight"):
-    process.append("conversation.flow.preflight_logged")
-    return process
-
-  process.append(f"orchestration.intent.{intent or 'unknown'}")
-  if adaptive_route_name in {"routing_pending", "conversation", "tiny_chat"}:
-    process.append("orchestration.routing.route_generation_action_tool")
-  if intent == "greeting":
-    process.extend([
-      "conversation.handle_greeting",
-      "conversation.response_built",
-    ])
-  elif intent == "project_info":
-    process.extend([
-      "project_inspection.build_context",
-      "conversation.generate_project_info_response",
-    ])
-  elif intent == "document_artifact":
-    process.extend([
-      "artifact.document_prompt_built",
-      "artifact.document_response_normalized",
-    ])
-  elif intent in {"website_update", "website_generation", "simple_code"}:
-    process.extend([
-      "agent_runtime.analysis_stage",
-      "agent_runtime.commit_stage",
-    ])
-  process.append(f"conversation.flow.{event_type.rsplit('.', 1)[-1]}")
-  return process
-
-
-def _backend_flow_files_for_event(
-  *,
-  event_type: str,
-  routing_result: dict[str, Any] | None = None,
-  adaptive_route: dict[str, Any] | None = None,
-) -> list[str]:
-  route = routing_result if isinstance(routing_result, dict) else {}
-  adaptive = adaptive_route if isinstance(adaptive_route, dict) else {}
-  intent = str(route.get("intent") or "").strip().lower()
-  adaptive_route_name = str(adaptive.get("route") or "").strip().lower()
-
-  if adaptive_route_name == "tiny_chat" and event_type.endswith("preflight"):
-    return [
-      "backend/api/generation_parts/preflight.py",
-      "backend/agents/request_complexity.py",
-      "backend/agents/memory/topic_clustering.py",
-    ]
-
-  files = [
-    "backend/api/generation.py",
-    "backend/api/generation_parts/preflight.py",
-    "backend/api/generation_parts/postflight.py",
-    "backend/api/generation_parts/failure.py",
-    "backend/api/generation_parts/flow_trace.py",
-    "backend/agents/chat_history.py",
-    "backend/agents/memory/topic_clustering.py",
-    "backend/agents/orchestration/runner_parts/core.py",
-    "backend/agents/orchestration/runner_parts/execution.py",
-    "backend/agents/orchestration/runner_parts/core_parts/routing.py",
-  ]
-
-  if event_type.endswith("preflight"):
-    files.extend(
-      [
-        "backend/agents/request_complexity.py",
-        "backend/agents/memory/context.py",
-      ]
-    )
-
-  if adaptive_route_name in {"conversation", "routing_pending"}:
-    files.extend(
-      [
-        "backend/agents/orchestration/conversation.py",
-        "backend/agents/orchestration/conversation_parts/assembly.py",
-      ]
-    )
-
-  if intent == "document_artifact":
-    files.extend(
-      [
-        "backend/agents/orchestration/runner_parts/document_artifact.py",
-        "backend/agents/orchestration/artifact_response_parts/normalization.py",
-        "backend/agents/orchestration/artifact_response_parts/response.py",
-        "backend/agents/prompting/builders.py",
-        "backend/agents/prompting/instructions.py",
-      ]
-    )
-  elif intent == "project_info":
-    files.extend(
-      [
-        "backend/agents/orchestration/conversation.py",
-        "backend/agents/orchestration/conversation_parts/assembly.py",
-      ]
-    )
-  elif intent in {"website_update", "website_generation", "simple_code"}:
-    files.extend(
-      [
-        "backend/agents/agent_runtime/loop_core.py",
-        "backend/agents/agent_runtime/state.py",
-        "backend/agents/agent_runtime/actions/analysis_parts/core.py",
-        "backend/agents/agent_runtime/actions/project_io_parts/commit.py",
-      ]
-    )
-
-  deduped: list[str] = []
-  seen: set[str] = set()
-  for path in files:
-    if path not in seen:
-      seen.add(path)
-      deduped.append(path)
-  return deduped
-
-
 def log_generation_flow_trace(
   event_type: str,
   *,
@@ -423,20 +180,10 @@ def log_generation_flow_trace(
     intent=intent,
     adaptive_route_name=adaptive_route_name,
   )
-  backend_flow_files = _backend_flow_files_for_event(
-    event_type=event_type,
-    routing_result=routing_result,
-    adaptive_route=adaptive_route,
-  )
-  backend_flow_functions = _backend_flow_functions_for_event(
-    event_type=event_type,
-    routing_result=routing_result,
-    adaptive_route=adaptive_route,
-  )
-  backend_flow_process = _backend_flow_process_for_event(
-    event_type=event_type,
-    routing_result=routing_result,
-    adaptive_route=adaptive_route,
+  has_runtime_capture = bool(
+    runtime_capture.get("files")
+    or runtime_capture.get("functions_by_file")
+    or runtime_capture.get("process")
   )
   get_conversation_flow_logger().log(
     event_type=event_type,
@@ -455,9 +202,10 @@ def log_generation_flow_trace(
     status=status,
     extra={
       **(extra or {}),
-      "backend_flow_files": runtime_capture.get("files") or backend_flow_files,
-      "backend_flow_functions": runtime_capture.get("functions_by_file") or backend_flow_functions,
-      "backend_flow_process": runtime_capture.get("process") or backend_flow_process,
+      "backend_flow_capture_status": "captured" if has_runtime_capture else "missing",
+      "backend_flow_files": runtime_capture.get("files") or [],
+      "backend_flow_functions": runtime_capture.get("functions_by_file") or {},
+      "backend_flow_process": runtime_capture.get("process") or [],
       "semantic_flow_files": runtime_capture.get("semantic_files") or [],
       "semantic_flow_functions": runtime_capture.get("semantic_functions_by_file") or {},
       "semantic_flow_process": runtime_capture.get("semantic_process") or [],

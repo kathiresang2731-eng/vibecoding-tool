@@ -5,6 +5,11 @@ from pathlib import Path
 from typing import Any
 
 try:
+  from backend.orchestration_terminal import orchestration_terminal_verbose_enabled
+except ImportError:
+  from orchestration_terminal import orchestration_terminal_verbose_enabled
+
+try:
   from backend.agents.providers import DUAL_PROVIDER_ROLE
 except ImportError:
   from backend.agents.providers import DUAL_PROVIDER_ROLE
@@ -100,34 +105,35 @@ def print_project_workspace_snapshot(
     str((root / path).resolve()) if root is not None else path
     for path in generated_paths
   ]
-  print(f"\n[WorktualWorkspace] stage={stage}", flush=True)
-  print(
-    f"[WorktualWorkspace] project_id={project_id} "
-    f"project_name={str(project.get('name') or '')}",
-    flush=True,
-  )
-  print(
-    f"[WorktualWorkspace] mode={workspace_mode} folder={folder_display}",
-    flush=True,
-  )
-  print(
-    f"[WorktualWorkspace] input_files={len(relative_paths)} intent={intent or 'pending'}",
-    flush=True,
-  )
-  for path in absolute_paths:
-    print(f"[WorktualWorkspace]   input: {path}", flush=True)
-  if generated_files is not None:
+  if orchestration_terminal_verbose_enabled():
+    print(f"\n[WorktualWorkspace] stage={stage}", flush=True)
     print(
-      f"[WorktualWorkspace] generated_files={len(generated_paths)}",
+      f"[WorktualWorkspace] project_id={project_id} "
+      f"project_name={str(project.get('name') or '')}",
       flush=True,
     )
-    for path in absolute_generated_paths:
-      print(f"[WorktualWorkspace]   output: {path}", flush=True)
-    if not generated_paths:
+    print(
+      f"[WorktualWorkspace] mode={workspace_mode} folder={folder_display}",
+      flush=True,
+    )
+    print(
+      f"[WorktualWorkspace] input_files={len(relative_paths)} intent={intent or 'pending'}",
+      flush=True,
+    )
+    for path in absolute_paths:
+      print(f"[WorktualWorkspace]   input: {path}", flush=True)
+    if generated_files is not None:
       print(
-        "[WorktualWorkspace] WARNING: artifact flow returned zero generated file paths",
+        f"[WorktualWorkspace] generated_files={len(generated_paths)}",
         flush=True,
       )
+      for path in absolute_generated_paths:
+        print(f"[WorktualWorkspace]   output: {path}", flush=True)
+      if not generated_paths:
+        print(
+          "[WorktualWorkspace] WARNING: artifact flow returned zero generated file paths",
+          flush=True,
+        )
 
   return {
     "stage": stage,

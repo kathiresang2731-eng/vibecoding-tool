@@ -13,11 +13,17 @@ def build_conversation_steps(
   conversation_response: dict[str, Any],
   start_index: int,
 ) -> list[dict[str, Any]]:
+  conversation_agent = "Intent Router Agent" if str(intent or "").strip().lower() == "greeting" else "Conversation Agent"
+  conversation_action = (
+    "handle_greeting_without_file_generation"
+    if str(intent or "").strip().lower() == "greeting"
+    else "respond_without_file_generation"
+  )
   return [
     agent_step(
       index=start_index,
-      agent="Conversation Agent",
-      action="respond_without_file_generation",
+      agent=conversation_agent,
+      action=conversation_action,
       input_payload={"intent": intent, "routing_result": routing_result},
       output_payload={
         "message": conversation_response.get("message"),

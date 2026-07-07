@@ -3,8 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 from backend.agents.schema import ResponseContractError
+from backend.agents.canonical_roles import canonicalize_agent_list
 from ..state import GenerationPipelineState
-from ..constants import DEFAULT_AGENT_TEAM, DEFAULT_TOOL_REGISTRY
+from ..constants import DEFAULT_TOOL_REGISTRY, FULL_AGENT_REGISTRY
 from ..tool_registry import (
   merge_agents,
   merge_tool_registry_entries,
@@ -54,7 +55,7 @@ def apply_backend_routing_to_response(state: GenerationPipelineState) -> None:
   tool_setup = response["gemini_tool_calling_setup"]
   if runtime:
     runtime_agents = runtime.get("agents") if isinstance(runtime.get("agents"), list) else []
-    multi_agent_system["agents"] = merge_agents(runtime_agents, [])
+    multi_agent_system["agents"] = merge_agents(canonicalize_agent_list(runtime_agents), [])
     real_tool_sequence = ["route_generation_action"]
     for call in runtime.get("tool_calls", []):
       if isinstance(call, dict):
@@ -69,7 +70,7 @@ def apply_backend_routing_to_response(state: GenerationPipelineState) -> None:
     tool_setup["tool_call_sequence"] = merge_tool_sequence([], real_tool_sequence)
     return
 
-  multi_agent_system["agents"] = merge_agents(DEFAULT_AGENT_TEAM, multi_agent_system.get("agents") or [])
+  multi_agent_system["agents"] = merge_agents(FULL_AGENT_REGISTRY, canonicalize_agent_list(multi_agent_system.get("agents") or []))
   tool_setup["tools"] = merge_tools(DEFAULT_TOOL_REGISTRY, tool_setup.get("tools") or [])
   default_sequence = (
     ["route_generation_action", "generate_simple_code_file", "validate_generated_website"]

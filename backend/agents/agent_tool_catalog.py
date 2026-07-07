@@ -2,6 +2,20 @@ from __future__ import annotations
 
 from typing import Any
 
+from .canonical_roles import (
+  CANONICAL_CONTEXT_AGENT,
+  CANONICAL_DOCUMENT_ARTIFACT,
+  CANONICAL_ORCHESTRATOR,
+  CANONICAL_QUALITY_GATE,
+  CANONICAL_READ_ONLY_ASSISTANT,
+  CANONICAL_SAVE_MEMORY,
+  CANONICAL_SIMPLE_CODE,
+  CANONICAL_WEBSITE_BUILDER,
+  canonical_role_for_agent,
+  canonicalize_agent_entry,
+  canonicalize_agent_list,
+)
+
 
 def _tool_purpose(*, does: str, when: str, when_not: str = "") -> str:
   text = f"{does} Use when: {when}"
@@ -28,20 +42,6 @@ ORCHESTRATION_AGENT_TEAM: list[dict[str, Any]] = [
     ],
     "inputs": ["user_prompt"],
     "outputs": ["routing_decision", "next_tool"],
-  },
-  {
-    "name": "Greeting Handler Agent",
-    "role": "Handles greetings and small-talk before a website brief exists.",
-    "goal": "Respond warmly and collect the website description needed to start building.",
-    "mode": "descriptive",
-    "tools": ["handle_greeting"],
-    "responsibilities": [
-      "Run only when routing selects greeting intent",
-      "Do not treat greetings as failed generation prompts",
-      "Ask for business type, pages, and style in next_prompt_guidance",
-    ],
-    "inputs": ["user_prompt"],
-    "outputs": ["conversation_response", "next_prompt_guidance"],
   },
   {
     "name": "Read-only Assistant Agent",
@@ -386,7 +386,7 @@ def _runtime_agent_team_entries() -> list[dict[str, Any]]:
       continue
     role_key = str(policy.get("role") or "runtime")
     entries.append(
-      {
+      canonicalize_agent_entry({
         "name": name,
         "role": str(policy["responsibility"]),
         "goal": str(policy.get("goal") or ""),
@@ -395,12 +395,99 @@ def _runtime_agent_team_entries() -> list[dict[str, Any]]:
         "responsibilities": [str(policy["responsibility"])],
         "inputs": list(policy.get("input") or []),
         "outputs": list(policy.get("output") or []),
-      }
+      })
     )
   return entries
 
 
-DEFAULT_AGENT_TEAM: list[dict[str, Any]] = ORCHESTRATION_AGENT_TEAM + _runtime_agent_team_entries()
+VISIBLE_AGENT_TEAM: list[dict[str, Any]] = [
+  {
+    "name": CANONICAL_ORCHESTRATOR,
+    "role": "Routes the user turn, confirms risky work, and supervises legal flow transitions.",
+    "goal": "Choose the correct branch before any generation, update, or file write starts.",
+    "mode": "diagnostic",
+    "tools": ["route_generation_action", "confirm_execution_brief"],
+    "internal_agents": ["Intent Router Agent", "Requirement Confirmation Agent", "Supervisor Agent"],
+  },
+  {
+    "name": CANONICAL_READ_ONLY_ASSISTANT,
+    "role": "Handles questions, greetings, general queries, and project information without file changes.",
+    "goal": "Answer directly when no artifact mutation is authorized.",
+    "mode": "descriptive",
+    "tools": ["handle_greeting", "answer_question", "answer_general_query", "search_web", "summarize_current_project"],
+    "internal_agents": ["Read-only Assistant Agent", "Conversation Agent"],
+  },
+  {
+    "name": CANONICAL_SIMPLE_CODE,
+    "role": "Generates standalone code files outside the website runtime.",
+    "goal": "Create complete runnable scripts/programs without React/Vite scaffolding.",
+    "mode": "prescriptive",
+    "tools": ["generate_simple_code_file"],
+    "internal_agents": ["Simple Code Writer Agent"],
+  },
+  {
+    "name": CANONICAL_DOCUMENT_ARTIFACT,
+    "role": "Generates document artifacts such as Markdown, TXT, CSV, and PDF-ready content.",
+    "goal": "Create documents without website/app generation.",
+    "mode": "prescriptive",
+    "tools": ["generate_document_artifact"],
+    "internal_agents": ["Document Artifact Agent"],
+  },
+  {
+    "name": CANONICAL_CONTEXT_AGENT,
+    "role": "Loads files, memory, project context, update scope, and plans before implementation.",
+    "goal": "Give the builder only the relevant context and smallest safe scope.",
+    "mode": "diagnostic",
+    "tools": ["READ_PROJECT_FILES", "LOAD_PROJECT_MEMORY", "analyze_prompt", "analyze_update_request"],
+    "internal_agents": [
+      "Memory Agent",
+      "Universal Error Handling Agent",
+      "Update Analysis Agent",
+      "Prompt Analyst Agent",
+      "Planner Agent",
+      "Predictive Planning Agent",
+    ],
+  },
+  {
+    "name": CANONICAL_WEBSITE_BUILDER,
+    "role": "Generates or updates website files through the selected internal execution strategy.",
+    "goal": "Apply only the needed builder path for generation, scoped update, or streaming edit.",
+    "mode": "prescriptive",
+    "tools": ["generate_website_files", "RUN_CODE_AGENT", "RUN_SCOPED_UPDATE_AGENT", "read_file", "write_file", "str_replace", "list_files"],
+    "internal_agents": [
+      "Prescriptive Builder Agent",
+      "Streaming File Agent",
+      "Parallel Stream Orchestrator",
+      "Scoped Update Agent",
+      "Code Agent",
+      "Code Generator Agent",
+      "Materialize Agent",
+    ],
+  },
+  {
+    "name": CANONICAL_QUALITY_GATE,
+    "role": "Validates artifacts, builds previews, and runs QA checks before save.",
+    "goal": "Prevent invalid, unsafe, or broken files from being committed.",
+    "mode": "diagnostic",
+    "tools": ["VALIDATE_PROJECT_ARTIFACT", "BUILD_STAGED_PROJECT_PREVIEW", "RUN_PREVIEW_VISUAL_QA"],
+    "internal_agents": ["Diagnostic UX Agent", "UX Review Agent", "Accessibility Agent", "Validation Agent", "Preview Agent", "Visual QA Agent"],
+  },
+  {
+    "name": CANONICAL_SAVE_MEMORY,
+    "role": "Commits accepted files and persists project memory after successful completion.",
+    "goal": "Save only validated changes and record concise memory for future follow-ups.",
+    "mode": "prescriptive",
+    "tools": ["WRITE_PROJECT_FILES", "PERSIST_PROJECT_MEMORY"],
+    "internal_agents": ["Commit Agent", "Memory Agent"],
+  },
+]
+VISIBLE_AGENT_TEAM = canonicalize_agent_list(VISIBLE_AGENT_TEAM)
+
+INTERNAL_AGENT_REGISTRY: list[dict[str, Any]] = canonicalize_agent_list(ORCHESTRATION_AGENT_TEAM) + _runtime_agent_team_entries()
+
+# Backward-compatible name. Use VISIBLE_AGENT_TEAM for user-facing prompt/log surfaces
+# and INTERNAL_AGENT_REGISTRY/FULL_AGENT_REGISTRY when execution internals are needed.
+DEFAULT_AGENT_TEAM: list[dict[str, Any]] = VISIBLE_AGENT_TEAM
 
 SPECIALIST_AGENT_POLICIES: dict[str, dict[str, Any]] = {
   "content": {
@@ -422,6 +509,22 @@ SPECIALIST_AGENT_POLICIES: dict[str, dict[str, Any]] = {
     "tools": [],
   },
 }
+
+SPECIALIST_AGENT_REGISTRY: list[dict[str, Any]] = [
+  canonicalize_agent_entry({
+    "name": str(policy.get("name") or name),
+    "role": str(policy.get("role") or name),
+    "goal": str(policy.get("goal") or ""),
+    "mode": "predictive",
+    "tools": list(policy.get("tools") or []),
+    "responsibilities": [str(policy.get("goal") or "")],
+    "inputs": ["user_prompt", "project_context"],
+    "outputs": ["specialist_plan"],
+  })
+  for name, policy in SPECIALIST_AGENT_POLICIES.items()
+]
+
+FULL_AGENT_REGISTRY = VISIBLE_AGENT_TEAM + INTERNAL_AGENT_REGISTRY + SPECIALIST_AGENT_REGISTRY
 
 # ---------------------------------------------------------------------------
 # Orchestration tools (routing / conversation / legacy artifact)
@@ -459,8 +562,9 @@ DEFAULT_TOOL_REGISTRY: list[dict[str, Any]] = [
   },
   {
     "name": "handle_greeting",
+    "owner_agent": "Intent Router Agent",
     "purpose": _tool_purpose(
-      does="Reply to greeting or small-talk and ask for the website brief.",
+      does="Intent Router tool that replies to greeting or small-talk and asks for the website brief.",
       when="Routing selected greeting intent.",
       when_not="The user already provided a generation-ready website brief.",
     ),

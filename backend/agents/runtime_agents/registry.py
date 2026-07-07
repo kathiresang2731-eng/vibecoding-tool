@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..canonical_roles import canonical_role_for_agent
 from ..agent_tool_catalog import RUNTIME_ACTION_DESCRIPTIONS
 
 
 def _action(agent: str, action: str, tools: list[str] | None = None) -> dict[str, Any]:
   return {
     "agent": agent,
+    "internal_agent": agent,
+    "canonical_role": canonical_role_for_agent(agent),
     "description": RUNTIME_ACTION_DESCRIPTIONS[action],
     "tools": list(tools or []),
   }
@@ -81,6 +84,17 @@ AGENT_FLOW: tuple[dict[str, Any], ...] = (
 
 def runtime_agent_names() -> list[str]:
   return list(RUNTIME_AGENT_GROUPS)
+
+
+def canonical_runtime_agent_groups() -> dict[str, tuple[str, ...]]:
+  grouped: dict[str, list[str]] = {}
+  for agent_name, actions in RUNTIME_AGENT_GROUPS.items():
+    role = canonical_role_for_agent(agent_name)
+    grouped.setdefault(role, [])
+    for action in actions:
+      if action not in grouped[role]:
+        grouped[role].append(action)
+  return {role: tuple(actions) for role, actions in grouped.items()}
 
 
 def actions_for_agent(agent_name: str) -> list[dict[str, Any]]:

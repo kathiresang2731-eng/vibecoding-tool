@@ -17,7 +17,7 @@ class _Store:
   def list_files(self, *_args, **_kwargs):
     return [
       {"path": "src/App.jsx", "content": "export default function App(){ return null; }"},
-      {"path": "src/pages/Deals.jsx", "content": "export default function Deals(){ return null; }"},
+      {"path": "src/pages/Deals.jsx", "content": "export default function Deals(){ return <button type='button'>Create Action Plan</button>; }"},
     ]
 
   def list_project_chat_messages(self, *_args, **_kwargs):
@@ -96,10 +96,10 @@ class _ReferentialRoutingProvider:
   def generate_json(self, prompt: str, **_kwargs):
     self.last_prompt = prompt
     return {
-      "intent": "website_update" if "create action button is not working in deals page" in prompt.lower() else "needs_more_detail",
-      "reason": "Used same-topic continuity for routing." if "create action button is not working in deals page" in prompt.lower() else "Prompt is still ambiguous.",
-      "missing_fields": [] if "create action button is not working in deals page" in prompt.lower() else ["button_identifier"],
-      "clarification_question": "" if "create action button is not working in deals page" in prompt.lower() else "Which button is it?",
+      "intent": "website_update" if "create action button is not working in deals page" in prompt.lower() and "button: create action plan" in prompt.lower() else "needs_more_detail",
+      "reason": "Used same-topic continuity for routing." if "create action button is not working in deals page" in prompt.lower() and "button: create action plan" in prompt.lower() else "Prompt is still ambiguous.",
+      "missing_fields": [] if "create action button is not working in deals page" in prompt.lower() and "button: create action plan" in prompt.lower() else ["button_identifier"],
+      "clarification_question": "" if "create action button is not working in deals page" in prompt.lower() and "button: create action plan" in prompt.lower() else "Which button is it?",
     }
 
 
@@ -140,3 +140,5 @@ def test_routing_uses_same_topic_followup_context_before_llm_intent_decision(mon
   assert result["routing_result"]["intent"] == "website_update"
   assert "create action button is not working in deals page" in provider.last_prompt.lower()
   assert any(event["step"] == "routing.same_topic_continuity" for event in events)
+  assert any(event["step"] == "routing.resolved_target_context" for event in events)
+  assert any(event["step"] == "routing.interaction_followup_resolved" for event in events)

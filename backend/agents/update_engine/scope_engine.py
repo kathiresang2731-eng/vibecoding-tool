@@ -485,6 +485,126 @@ def _apply_interaction_anchor_scope(
   return merged
 
 
+def _apply_resolved_target_scope(
+  analysis: dict[str, Any],
+  *,
+  prompt: str,
+  project_files: list[dict[str, Any]],
+  target_resolution: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+  """Keep same-topic resolved targets from widening back into unrelated flows."""
+  resolution = target_resolution if isinstance(target_resolution, dict) else {}
+  resolved_files = [
+    str(path).strip()
+    for path in list(resolution.get("resolved_files") or [])
+    if str(path).strip()
+  ]
+  if not resolved_files:
+    return analysis
+
+  existing_path_set = {
+    str(item.get("path") or "")
+    for item in project_files
+    if isinstance(item, dict) and item.get("path")
+  }
+  resolved_files = [path for path in resolved_files if path in existing_path_set]
+  if not resolved_files:
+    return analysis
+
+  resolved_button = str(resolution.get("resolved_button") or "").strip()
+  resolved_page = str(resolution.get("resolved_page") or "").strip()
+  primary_prompt = primary_update_prompt(prompt).lower()
+  interaction_issue = any(
+    marker in primary_prompt
+    for marker in (
+      "button",
+      "click",
+      "onclick",
+      "not working",
+      "does not work",
+      "doesn't work",
+      "nothing happens",
+      "no action",
+      "popup",
+      "modal",
+      "dialog",
+      "redirect",
+      "navigate",
+      "open",
+      "close",
+    )
+  )
+  if not resolved_button and not interaction_issue:
+    return analysis
+
+  merged = dict(analysis)
+  current_targets = [
+    str(path)
+    for path in list(merged.get("target_files") or [])
+    if str(path or "") in existing_path_set
+  ]
+  current_candidates = [
+    str(path)
+    for path in list(merged.get("candidate_files") or [])
+    if str(path or "") in existing_path_set
+  ]
+  same_owner_candidates = [
+    path
+    for path in current_candidates
+    if path in resolved_files
+  ]
+  focused_candidates = list(dict.fromkeys([*resolved_files, *same_owner_candidates]))[:4]
+
+  request_kind = str(merged.get("request_kind") or "").strip().lower()
+  if request_kind in {"other", "feature_patch", "flow_patch", "bug_fix", ""}:
+    merged["request_kind"] = "interaction_wiring_update"
+  merged["update_mode"] = "bug_fix" if interaction_issue else "targeted_patch"
+  merged["candidate_files"] = focused_candidates or resolved_files[:4]
+  merged["target_files"] = list(resolved_files[:4])
+  merged["reference_files"] = [
+    str(path)
+    for path in list(merged.get("reference_files") or [])
+    if str(path or "") in set(resolved_files)
+  ][:4]
+  merged["candidate_new_files"] = []
+  merged["new_file_requirements"] = _new_files_not_required(
+    "A live page/control target was already resolved from same-topic memory and project anchors; patch that existing owner first."
+  )
+  summary = str(merged.get("summary") or primary_update_prompt(prompt) or "Repair requested UI interaction")
+  merged["summary"] = summary
+  merged["interaction"] = {
+    **(merged.get("interaction") if isinstance(merged.get("interaction"), dict) else {}),
+    "component": resolved_button or resolved_page or "resolved target",
+    "trigger": "click" if interaction_issue else str((merged.get("interaction") or {}).get("trigger") or ""),
+    "source_page": resolved_page,
+    "expected": str((merged.get("interaction") or {}).get("expected") or primary_update_prompt(prompt)[:240]),
+  }
+  merged["interaction_summary"] = (
+    str(merged.get("interaction_summary") or "").strip()
+    or f"Patch the existing interaction for {resolved_button or resolved_page or resolved_files[0]} in {resolved_files[0]}."
+  )
+  merged["scoped_update_tasks"] = [
+    {
+      "id": "resolved-target-interaction-repair",
+      "kind": "interaction_wiring",
+      "summary": summary[:240],
+      "prompt": (
+        "The active page/control was already resolved from same-topic conversation memory and live UI anchors. "
+        "Patch the existing handler/state wiring in the resolved owner file first."
+      ),
+      "candidate_files": list(merged["candidate_files"]),
+      "paths": list(merged["candidate_files"]),
+      "candidate_new_files": [],
+      "group_paths": True,
+    }
+  ]
+  merged["scope_rationale"] = (
+    "Resolved target scope guard kept the update pinned to the same-topic live owner. "
+    f"Page: {resolved_page or 'unknown'}; button: {resolved_button or 'not specified'}; files: {', '.join(resolved_files)}."
+  )
+  return merged
+
+
 VISUAL_STYLE_REQUEST_KINDS = {"theme_color_update", "style_reference_update"}
 
 
@@ -789,6 +909,7 @@ def resolve_update_scope(
   chat_session_id: str | None = None,
   chat_topic_id: str | None = None,
   project_name: str = "",
+  target_resolution: dict[str, Any] | None = None,
   emit_progress: Any | None = None,
 ) -> UpdateScope:
   """Single authority for update file routing: memory + code retrieval + LLM analysis."""
@@ -849,6 +970,12 @@ def resolve_update_scope(
       project_files=project_files,
       emit_progress=emit_progress,
     )
+    fallback = _apply_resolved_target_scope(
+      fallback,
+      prompt=prompt,
+      project_files=project_files,
+      target_resolution=target_resolution,
+    )
     scope = _analysis_to_scope(
       fallback,
       preflight_source=fallback.get("preflight_source") or "legacy_fallback",
@@ -890,6 +1017,12 @@ def resolve_update_scope(
       prompt=prompt,
       project_files=project_files,
       emit_progress=emit_progress,
+    )
+    fallback = _apply_resolved_target_scope(
+      fallback,
+      prompt=prompt,
+      project_files=project_files,
+      target_resolution=target_resolution,
     )
     if fallback.get("candidate_files") and llm_analysis is None:
       fallback["scope_rationale"] = (
@@ -956,6 +1089,12 @@ def resolve_update_scope(
     prompt=prompt,
     project_files=project_files,
     emit_progress=emit_progress,
+  )
+  llm_analysis = _apply_resolved_target_scope(
+    llm_analysis,
+    prompt=prompt,
+    project_files=project_files,
+    target_resolution=target_resolution,
   )
 
   scope = _analysis_to_scope(

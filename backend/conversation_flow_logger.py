@@ -56,6 +56,13 @@ def _format_mapping(label: str, values: dict[str, list[str] | tuple[str, ...] | 
   return lines if len(lines) > 1 else [f"{label}: []"]
 
 
+def _format_block_lines(label: str, values: list[str]) -> list[str]:
+  cleaned = [str(item).rstrip() for item in values if str(item or "").strip()]
+  if not cleaned:
+    return [f"{label}: []"]
+  return [f"{label}:"] + [f"  {item}" for item in cleaned]
+
+
 class ConversationFlowLogger:
   def __init__(
     self,
@@ -140,6 +147,9 @@ class ConversationFlowLogger:
     lines.extend(_format_paths("generated_files", generated_paths))
     lines.extend(_format_paths("project_context_files", project_paths))
     if extra:
+      backend_flow_capture_status = extra.get("backend_flow_capture_status")
+      if backend_flow_capture_status is not None:
+        lines.append(f"backend_flow_capture_status: {_safe_text(backend_flow_capture_status)}")
       backend_flow_files = extra.get("backend_flow_files")
       if isinstance(backend_flow_files, list):
         lines.extend(_format_paths("backend_flow_files", [str(item) for item in backend_flow_files]))
@@ -173,6 +183,15 @@ class ConversationFlowLogger:
       runtime_steps = extra.get("runtime_steps")
       if isinstance(runtime_steps, list):
         lines.extend(_format_paths("runtime_steps", [str(item) for item in runtime_steps]))
+      runtime_internal_steps = extra.get("runtime_internal_steps")
+      if isinstance(runtime_internal_steps, list):
+        lines.extend(_format_paths("runtime_internal_steps", [str(item) for item in runtime_internal_steps]))
+      runtime_step_details = extra.get("runtime_step_details")
+      if isinstance(runtime_step_details, list):
+        lines.extend(_format_paths("runtime_step_details", [str(item) for item in runtime_step_details]))
+      runtime_phase_details = extra.get("runtime_phase_details")
+      if isinstance(runtime_phase_details, list):
+        lines.extend(_format_block_lines("runtime_phase_details", [str(item) for item in runtime_phase_details]))
       workspace_candidate_pool = extra.get("workspace_candidate_pool")
       if isinstance(workspace_candidate_pool, list):
         lines.extend(_format_paths("workspace_candidate_pool", [str(item) for item in workspace_candidate_pool]))

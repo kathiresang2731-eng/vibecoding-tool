@@ -17,6 +17,8 @@ def build_a2a_message(
 ) -> dict[str, Any]:
   source_agent = text_value(source.get("agent"), "Source Agent")
   target_agent = text_value(target.get("agent"), "Target Agent")
+  source_internal_agent = text_value(source.get("internal_agent") or source_agent, source_agent)
+  target_internal_agent = text_value(target.get("internal_agent") or target_agent, target_agent)
   source_action = text_value(source.get("action"), "completed_agent_step")
   target_action = text_value(target.get("action"), "run_next_agent_step")
   channel = ACTION_CHANNELS.get(target_action, "planning")
@@ -42,6 +44,8 @@ def build_a2a_message(
     "type": "agent_handoff",
     "from_agent": source_agent,
     "to_agent": target_agent,
+    "from_internal_agent": source_internal_agent,
+    "to_internal_agent": target_internal_agent,
     "sender": canonical_contract["sender"],
     "receiver": canonical_contract["receiver"],
     "task": canonical_contract["task"],
@@ -78,6 +82,8 @@ def build_a2a_message_from_handoff(
 ) -> dict[str, Any]:
   source_agent = text_value(handoff.get("from_agent"), "Source Agent")
   target_agent = text_value(handoff.get("to_agent"), "Target Agent")
+  source_internal_agent = text_value(handoff.get("from_internal_agent") or source_agent, source_agent)
+  target_internal_agent = text_value(handoff.get("to_internal_agent") or target_agent, target_agent)
   source_action = text_value(handoff.get("from_action"), "completed_agent_step")
   target_action = text_value(handoff.get("to_action"), "run_next_agent_step")
   requested_tool_calls = list_value(handoff.get("requested_tool_calls"))
@@ -103,6 +109,8 @@ def build_a2a_message_from_handoff(
     "type": "agent_handoff",
     "from_agent": source_agent,
     "to_agent": target_agent,
+    "from_internal_agent": source_internal_agent,
+    "to_internal_agent": target_internal_agent,
     "sender": canonical_contract["sender"],
     "receiver": canonical_contract["receiver"],
     "task": canonical_contract["task"],

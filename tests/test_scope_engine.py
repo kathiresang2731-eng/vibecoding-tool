@@ -5,7 +5,12 @@ import os
 os.environ.setdefault("ENABLE_UNIFIED_UPDATE_ENGINE", "true")
 os.environ.setdefault("ENABLE_CODE_INDEX", "true")
 
-from backend.agents.update_engine.scope_engine import _apply_theme_color_scope, _minimal_code_search_fallback, resolve_update_scope
+from backend.agents.update_engine.scope_engine import (
+  _apply_resolved_target_scope,
+  _apply_theme_color_scope,
+  _minimal_code_search_fallback,
+  resolve_update_scope,
+)
 
 
 SAMPLE_FILES = [
@@ -284,3 +289,100 @@ def test_interaction_scope_prefers_real_action_plan_anchor_over_llm_deals_guess(
   assert scope.candidate_new_files == []
   assert scope.raw_analysis["new_file_requirements"]["needed"] is False
   assert scope.scoped_update_tasks[0]["candidate_new_files"] == []
+
+
+def test_resolved_target_scope_overrides_broad_flow_patch_for_same_topic_button_issue():
+  project_files = [
+    {
+      "path": "src/App.jsx",
+      "content": "export default function App() { return null; }",
+    },
+    {
+      "path": "src/pages/Deals.jsx",
+      "content": (
+        "export default function Deals() { "
+        "return <button type='button' onClick={handleCreateAction}>Create Action Plan</button>; "
+        "}"
+      ),
+    },
+    {
+      "path": "src/pages/Onboarding.jsx",
+      "content": "export default function Onboarding() { return <main>Onboarding</main>; }",
+    },
+  ]
+  analysis = {
+    "update_mode": "feature_patch",
+    "request_kind": "flow_patch",
+    "summary": "Repair the flow across multiple files.",
+    "candidate_files": ["src/pages/Onboarding.jsx", "src/App.jsx", "src/pages/Deals.jsx"],
+    "target_files": ["src/pages/Onboarding.jsx", "src/App.jsx", "src/pages/Deals.jsx"],
+    "candidate_new_files": ["src/components/AuthFlow.jsx"],
+  }
+
+  scoped = _apply_resolved_target_scope(
+    analysis,
+    prompt="while click that button there is no action is hapeening",
+    project_files=project_files,
+    target_resolution={
+      "resolved_page": "Deals",
+      "resolved_button": "Create Action Plan",
+      "resolved_files": ["src/pages/Deals.jsx"],
+    },
+  )
+
+  assert scoped["request_kind"] == "interaction_wiring_update"
+  assert scoped["update_mode"] == "bug_fix"
+  assert scoped["candidate_files"] == ["src/pages/Deals.jsx"]
+  assert scoped["target_files"][0] == "src/pages/Deals.jsx"
+  assert scoped["candidate_new_files"] == []
+  assert scoped["new_file_requirements"]["needed"] is False
+
+
+def test_resolve_update_scope_keeps_resolved_button_owner_pinned_even_if_llm_returns_flow_patch(monkeypatch):
+  project_files = [
+    {
+      "path": "src/App.jsx",
+      "content": "export default function App() { return null; }",
+    },
+    {
+      "path": "src/pages/Deals.jsx",
+      "content": (
+        "export default function Deals() { "
+        "return <button type='button' onClick={handleCreateAction}>Create Action Plan</button>; "
+        "}"
+      ),
+    },
+    {
+      "path": "src/pages/Onboarding.jsx",
+      "content": "export default function Onboarding() { return <main>Onboarding</main>; }",
+    },
+  ]
+
+  def fake_llm_scope(**_kwargs):
+    return {
+      "update_mode": "feature_patch",
+      "request_kind": "flow_patch",
+      "summary": "Repair a flow problem.",
+      "candidate_files": ["src/pages/Onboarding.jsx", "src/App.jsx"],
+      "target_files": ["src/pages/Onboarding.jsx", "src/App.jsx"],
+      "candidate_new_files": ["src/components/AuthFlow.jsx"],
+    }
+
+  monkeypatch.setattr("backend.agents.update_engine.scope_engine._run_llm_scope_analysis", fake_llm_scope)
+
+  scope = resolve_update_scope(
+    prompt="while click that button there is no action is hapeening",
+    project_files=project_files,
+    control_provider=object(),
+    target_resolution={
+      "resolved_page": "Deals",
+      "resolved_button": "Create Action Plan",
+      "resolved_files": ["src/pages/Deals.jsx"],
+    },
+  )
+
+  assert scope.request_kind == "interaction_wiring_update"
+  assert scope.update_mode == "bug_fix"
+  assert scope.candidate_files == ["src/pages/Deals.jsx"]
+  assert scope.target_files[0] == "src/pages/Deals.jsx"
+  assert scope.raw_analysis["new_file_requirements"]["needed"] is False

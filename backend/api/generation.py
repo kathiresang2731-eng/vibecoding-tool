@@ -101,11 +101,13 @@ try:
   from ..skills.matcher import user_opted_into_skills
   from ..skills.runtime import resolve_skill_request
   from ..skills.agents_md import build_project_agents_md_block
+  from ..agents.canonical_roles import compact_runtime_step_projection
 except ImportError:
   from backend.skills.injector import build_skill_recommendation_block, build_skills_prompt_block
   from backend.skills.matcher import user_opted_into_skills
   from backend.skills.runtime import resolve_skill_request
   from backend.skills.agents_md import build_project_agents_md_block
+  from backend.agents.canonical_roles import compact_runtime_step_projection
 
 
 def _string_list(values: object) -> list[str]:
@@ -778,6 +780,18 @@ def _run_generation_pipeline_unlocked(
         *_string_list(runtime_diagnostic_report.get("candidate_files")),
       ]))
 
+    runtime_step_entries = (
+      (agentic_runtime.get("steps") if isinstance(agentic_runtime.get("steps"), list) else None)
+      or (
+        generation.get("gemini_tool_calling_setup", {}).get("runtime_trace", {}).get("steps")
+        if isinstance(generation.get("gemini_tool_calling_setup"), dict)
+        and isinstance(generation.get("gemini_tool_calling_setup", {}).get("runtime_trace"), dict)
+        else []
+      )
+      or []
+    )
+    runtime_projection_for_log = compact_runtime_step_projection(runtime_step_entries)
+
     log_generation_flow_trace(
       "conversation.flow.completed",
       prompt=prompt,
@@ -810,20 +824,10 @@ def _run_generation_pipeline_unlocked(
             else []
           )
         ) or [],
-        "runtime_steps": [
-          str(step.get("agent") or step.get("name") or step.get("step") or "").strip()
-          for step in (
-            (agentic_runtime.get("steps") if isinstance(agentic_runtime.get("steps"), list) else None)
-            or (
-              generation.get("gemini_tool_calling_setup", {}).get("runtime_trace", {}).get("steps")
-              if isinstance(generation.get("gemini_tool_calling_setup"), dict)
-              and isinstance(generation.get("gemini_tool_calling_setup", {}).get("runtime_trace"), dict)
-              else []
-            )
-            or []
-          )
-          if isinstance(step, dict) and str(step.get("agent") or step.get("name") or step.get("step") or "").strip()
-        ],
+        "runtime_steps": runtime_projection_for_log["runtime_steps"],
+        "runtime_internal_steps": runtime_projection_for_log["runtime_internal_steps"],
+        "runtime_step_details": runtime_projection_for_log["runtime_step_details"],
+        "runtime_phase_details": runtime_projection_for_log["runtime_phase_details"],
       },
     )
 

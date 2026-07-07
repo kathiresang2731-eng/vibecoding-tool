@@ -161,6 +161,35 @@ def test_specific_button_issue_does_not_require_ambiguity_clarification() -> Non
   assert clarification is None
 
 
+def test_fresh_ambiguous_prompt_still_requires_clarification_even_if_history_resolved_button() -> None:
+  clarification = clarification_for_ambiguous_update_target(
+    "In deals page one button is not working",
+    [
+      {
+        "path": "src/pages/Deals.jsx",
+        "content": """
+          export default function Deals() {
+            return (
+              <main>
+                <button type="button">Create Action Plan</button>
+                <button type="button">Reset Filter</button>
+              </main>
+            );
+          }
+        """,
+      },
+    ],
+    target_resolution={
+      "resolved_page": "Deals",
+      "resolved_files": ["src/pages/Deals.jsx"],
+      "resolved_button": "Create Action Plan",
+    },
+  )
+
+  assert clarification is not None
+  assert clarification["missing_fields"] == ["button_identifier", "expected_behavior"]
+
+
 def test_partial_button_phrase_resolves_to_live_button_label() -> None:
   target = build_target_resolution(
     "create action button is not working in deals page",

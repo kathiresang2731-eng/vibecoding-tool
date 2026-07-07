@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from ..constants import DEFAULT_AGENT_TEAM, DEFAULT_TOOL_REGISTRY
+from ..constants import DEFAULT_TOOL_REGISTRY, VISIBLE_AGENT_TEAM
 from ..provider_utils import provider_name
 from ..state import GenerationPipelineState
 from .tools import build_selected_tool_arguments
@@ -33,6 +33,8 @@ def build_conversation_multi_agent_system(state: GenerationPipelineState, conver
     "active_agent": (
       "Requirement Confirmation Agent"
       if waiting_for_confirmation
+      else "Intent Router Agent"
+      if selected_tool == "handle_greeting"
       else "Read-only Assistant Agent"
     ),
     "routing_result": state.routing_result,
@@ -65,7 +67,7 @@ def build_conversation_multi_agent_system(state: GenerationPipelineState, conver
       "mutation_allowed": False,
       "reason": "Conversation-only turns must not start artifact generation or project file writes.",
     },
-    "agents": DEFAULT_AGENT_TEAM,
+    "agents": VISIBLE_AGENT_TEAM,
     "shared_state": {
       "prompt": state.user_prompt,
       "project_context": (
@@ -132,11 +134,7 @@ def build_conversation_gemini_tool_calling_setup(
           "status": "completed",
         },
         {
-          "agent": (
-            "greeting_handler_agent"
-            if next_tool_name == "handle_greeting"
-            else "read_only_assistant_agent"
-          ),
+          "agent": "intent_router_agent" if next_tool_name == "handle_greeting" else "read_only_assistant_agent",
           "tool": next_tool_name,
           "status": "completed",
         },
@@ -249,7 +247,7 @@ def build_conversation_agent_to_agent_communication(
     },
     "handoff_rules": [
       "Intent Router Agent owns action selection for every user turn.",
-      "Greeting Handler Agent owns turns routed as greeting by the orchestrator.",
+      "Intent Router Agent owns the handle_greeting tool for turns routed as greeting.",
       "Requirement Confirmation Agent owns approval before high-impact execution.",
       "Read-only Assistant Agent owns questions, general queries, and web search without file writes.",
       "Prompt Analyst Agent starts only after the user provides a website description.",
