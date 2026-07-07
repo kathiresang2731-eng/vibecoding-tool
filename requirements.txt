@@ -1,0 +1,15 @@
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+pydantic>=2.8,<3
+psycopg[binary]>=3.2,<4
+python-dotenv>=1.0,<2
+pytest>=8.0,<9
+httpx>=0.27,<1
+openai>=1.0,<2
+langchain>=1.0,<2
+langgraph>=1.0,<2
+google-adk>=1.0,<3
+loguru>=0.7,<1
+bcrypt>=4.1,<5
+PyJWT>=2.8,<3
+qdrant-client>=1.11,<2

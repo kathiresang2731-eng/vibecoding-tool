@@ -1,0 +1,11 @@
+node_modules
+dist
+.env
+.runtime
+.data
+logs
+gemini_token_usage
+.env.example
+.env.exa
+WORKING_MEMORY_THINKING/
+WORKING_MEMORY_THINKING/meilisearchWORKING_MEMORY_THINKING/

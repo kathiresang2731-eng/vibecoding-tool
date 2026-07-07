@@ -1,0 +1,2 @@
+class LocalWorkspaceError(RuntimeError):
+  pass
